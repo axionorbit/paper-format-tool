@@ -1,0 +1,1630 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>论文格式助手 - 产品需求文档</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei UI", sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background: #f5f7fa;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 40px 20px;
+            background: white;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        .header {
+            text-align: center;
+            padding: 40px 0;
+            border-bottom: 3px solid #3b82f6;
+            margin-bottom: 30px;
+        }
+
+        .header h1 {
+            font-size: 28px;
+            color: #1e293b;
+            margin-bottom: 10px;
+        }
+
+        .header .meta {
+            display: flex;
+            justify-content: center;
+            gap: 30px;
+            font-size: 14px;
+            color: #64748b;
+        }
+
+        .toc {
+            background: #f1f5f9;
+            padding: 20px 25px;
+            border-radius: 8px;
+            margin-bottom: 30px;
+        }
+
+        .toc h2 {
+            font-size: 18px;
+            color: #3b82f6;
+            margin-bottom: 15px;
+            border-bottom: 2px solid #e5e7eb;
+            padding-bottom: 10px;
+        }
+
+        .toc ul {
+            list-style: none;
+            padding: 0;
+        }
+
+        .toc ul li {
+            margin-bottom: 8px;
+        }
+
+        .toc ul li a {
+            color: #2563eb;
+            text-decoration: none;
+            font-size: 15px;
+        }
+
+        .toc ul li a:hover {
+            text-decoration: underline;
+        }
+
+        .section {
+            margin-bottom: 40px;
+        }
+
+        .section h2 {
+            font-size: 24px;
+            color: #1e293b;
+            border-left: 4px solid #3b82f6;
+            padding-left: 15px;
+            margin-bottom: 20px;
+        }
+
+        .section h3 {
+            font-size: 20px;
+            color: #1e293b;
+            margin: 25px 0 15px 0;
+        }
+
+        .section h4 {
+            font-size: 16px;
+            color: #475569;
+            margin: 20px 0 10px 0;
+        }
+
+        .section h5 {
+            font-size: 14px;
+            color: #64748b;
+            margin: 15px 0 8px 0;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 15px 0;
+            background: white;
+        }
+
+        table th {
+            background: #3b82f6;
+            color: white;
+            padding: 12px;
+            text-align: left;
+            font-size: 14px;
+            border: 1px solid #2563eb;
+        }
+
+        table td {
+            padding: 10px 12px;
+            border: 1px solid #e5e7eb;
+            font-size: 14px;
+        }
+
+        table tr:hover {
+            background: #f8fafc;
+        }
+
+        ul {
+            padding-left: 25px;
+            margin: 10px 0;
+        }
+
+        li {
+            margin-bottom: 8px;
+        }
+
+        .priority-box {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 4px;
+            margin: 0 5px;
+            font-size: 13px;
+        }
+
+        .priority-p0 {
+            background: #ef4444;
+            color: white;
+        }
+
+        .priority-p1 {
+            background: #f59e0b;
+            color: white;
+        }
+
+        .priority-p2 {
+            background: #10b981;
+            color: white;
+        }
+
+        .priority-p3 {
+            background: #6b7280;
+            color: white;
+        }
+
+        code {
+            background:: #f1f5f9;
+            padding: 3px 8px;
+            border-radius: 4px;
+            font-family: "Courier New", monospace;
+            font-size: 13px;
+            color: #1e293b;
+        }
+
+        .info-box {
+            background: #dbeafe;
+            border-left: 4px solid #3b82f6;
+            padding: 15px 20px;
+            margin: 15px 0;
+            border-radius: 4px;
+        }
+
+        .info-box .title {
+            font-weight: bold;
+            color: #1e293b;
+            margin-bottom: 10px;
+            font-size: 16px;
+        }
+
+        .flowchart {
+            background: #f8fafc;
+            padding: 20px;
+            border-radius: 8px;
+            border: 1px solid #e5e7eb;
+            margin: 15px 0;
+            font-family: monospace;
+            font-size: 13px;
+            overflow-x: auto;
+        }
+
+        .checkbox {
+            display: inline-block;
+            width: 18px;
+            height: 18px;
+            margin: 0 5px;
+        }
+
+        .status-ok {
+            color: #10b981;
+            font-weight: bold;
+        }
+
+        .status-pending {
+            color: #f59e0b;
+        }
+
+        .status-na {
+            color: #94a3b8;
+        }
+
+        .diagram {
+            background: white;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 15px 0;
+            overflow-x: auto;
+        }
+
+        @media print {
+            body {
+                background: white;
+            }
+            .container {
+                box-shadow: none;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- 头部信息 -->
+        <div class="header">
+            <h1>论文格式助手 - 产品需求文档 (PRD)</h1>
+            <div class="meta">
+                <span>版本号：v1.0</span>
+                <span>文档版本：1.0</span>
+                <span>创建日期：2026-04-08</span>
+                <span>文档状态：草案中</span>
+                <span>所有者：产品团队</span>
+            </div>
+        </div>
+
+        <!-- 目录 -->
+        <div class="toc">
+            <h2>目录</h2>
+            <ul>
+                <li><a href="#section-1">1. 产品概述</a></li>
+                <li><a href="#section-2">2. 产品目标</a></li>
+                <li><a href="#section-3">3. 目标用户</a></li>
+                <li><a href="#section-4">4. 产品定位</a></li>
+                <li><a href="#section-5">5. 功能需求</a></li>
+                <li><a href="#section-6">6. 非功能需求</a></li>
+                <li><a href="#section-7">7. 用户流程</a></li>
+                <li><a href="#section-8">8. 界面设计</a></li>
+                <li><a href="#section-9">9. 技术架构</a></li>
+                <li><a href="#section-10">10. 性能指标</a></li>
+                <li><a href="#section-11">11. 安全需求</a></li>
+                <li><a href="#section-12">12. 兼容性需求</a></li>
+                <li><a href="#section-13">13. 未来规划</a></li>
+                <li><a href="#appendix-a">附录 A：术语.表</a></li>
+                <li><a href="#appendix-b">附录 B：参考资料</a></li>
+            </ul>
+        </div>
+
+        <!-- 1. 产品概述 -->
+        <div class="section" id="section-1">
+            <h2>1. 产品概述</h2>
+
+            <h3>1.1 产品简介</h3>
+            <p>论文格式助手是一款基于 Microsoft Word 的智能格式化工具，专为学术写作场景设计。产品通过自动化识别论文文档结构，批量应用标准化格式规则，显著提升论文排版效率，减少人工调整时间。</p>
+
+            <h3>1.2 核心价值</h3>
+            <ul>
+                <li><strong>效率提升</strong>：将数小时的格式调整工作缩短至数分钟</li>
+                <li><strong>标准化</strong>：确保论文格式符合学术规范和期刊要求</li>
+                <li><strong>降低错误</strong>：减少手动排版中的人为错误</li>
+                <li><strong>批量处理</strong>：支持一次对整篇论文进行统一格式调整</li>
+            </ul>
+
+            <h3>1.3 应用场景</h3>
+            <ul>
+                <li>学术论文写作与修改</li>
+                <li>学位论文排版</li>
+                <li>期刊投稿格式调整</li>
+                <li>毕业设计论文格式统一</li>
+            </ul>
+        </div>
+
+        <!-- 2. 产品目标 -->
+        <div class="section" id="section-2">
+            <h2>2. 产品目标</h2>
+
+            <h3>2.1 短期目标（3-6个月）</h3>
+            <ul>
+                <li>完成 Windows 桌面版产品开发</li>
+                <li>支持常见论文模板（国标、GB、学校模板等）</li>
+                <li>实现核心格式规则的完整覆盖</li>
+                <li>建立用户反馈收集机制</li>
+                <li>完善错误处理和报告功能</li>
+            </ul>
+
+            <h3>2.2. 中期目标（6-12个月）</h3>
+            <ul>
+                <li>发布 macOS 版本</li>
+                <li>支持自定义格式模板导入/导出</li>
+                <li>增加格式预览功能</li>
+                <li>支持批量文件处理</li>
+                <li>建立在线模板库</li>
+            </ul>
+
+            <h3>2.3 长期目标（12个月以上）</h3>
+            <ul>
+                <li>开发 Web 版本（支持浏览器内直接编辑）</li>
+                <li>支持协作功能（团队共享格式配置）</li>
+                <li>AI 辅助功能（智能推荐格式）</li>
+                <li>与主流文献管理工具集成（如 EndNote、Zotero）</li>
+            </ul>
+        </div>
+
+        <!-- 3. 目标用户 -->
+        <div class="section" id="section-3">
+            <h2>3. 目标用户</h2>
+
+            <h3>3.1 核心用户画像</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>用户类型</th>
+                        <th>描述</th>
+                        <th>痛点</th>
+                        <th>需求</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>硕博研究生</td>
+                        <td>正在撰写学位论文，需要符合学校格式要求</td>
+                        <td>格式调整繁琐，容易出错</td>
+                        <td>快速、准确的批量格式化</td>
+                    </tr>
+                    <tr>
+                        <td>高校教师</</>
+                        <td>指导学生论文，需要检查格式规范性</td>
+                        <td>人工检查效率低</td>
+                        <td>自动化格式检查和修正</td>
+                    </tr>
+                    <tr>
+                        <td>科研人员</td>
+                        <td>发表期刊论文，需要符合期刊投稿格式</td>
+                        <td>不同期刊格式差异大</td>
+                        <td>支持自定义格式规则</td>
+                    </tr>
+                    <tr>
+                        <td>期刊编辑</td>
+                        <td>审核稿件，确保格式符合期刊规范</td>
+                        <td>审核工作量大</td>
+                        <td>批量格式检查工具</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <h3>3.2 用户规模预估</h3>
+            <ul>
+                <li>个人用户：研究生、科研人员（50,000+）</li>
+                <li>机构用户：高校图书馆、期刊编辑部（500+）</li>
+                <li>企业用户：出版机构、培训机构（50+）</li>
+            </ul>
+        </div>
+
+        <!-- 4. 产品定位 -->
+        <div class="section" id="section-4">
+            <h2>4. 产品定位</h2>
+
+            <h3>4.1 市场定位</h3>
+            <p><strong>论文格式助手定位为：</strong></p>
+            <ul>
+                <li><strong>垂直领域工具</strong>：专注学术论文格式化</li>
+                <li><strong>SaaS 工具</strong>：桌面应用 + 在线模板库</li>
+                <li><strong>轻量级工具</strong>：安装简便，即开即用</li>
+                <li><strong>高性价比工具</strong>：相比 Adobe InDesign 等专业排版软件，学习成本低</li>
+            </ul>
+
+            <h3>4.2 竞品分析</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>竞品</th>
+                        <th>优势</th>
+                        <th>劣势</th>
+                        <th>我们的策略</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>Microsoft Word 内置功能</td>
+                        <td>用户熟悉，无需额外安装</td>
+                        <td>功能分散，需要大量手动操作</td>
+                        <td>提供一键批量格式化，减少操作步骤</td>
+                    </tr>
+                    <tr>
+                        <td>专业排版软件（InDesign）</td>
+                        <td>功能强大，适合出版</td>
+                        <td>学习曲线陡峭，价格昂贵</td>
+                        <td>面向学术写作场景，降低使用门槛</td>
+                    </tr>
+                    <tr>
+                        <td>在线排版服务</td>
+                        <td>无需安装，支持云端协作</td>
+                        <td>隐私顾虑，网络依赖</td>
+                        <td>本地处理，数据安全，支持离线使用</td>
+                    </tr>
+                    <tr>
+                        <td>同类竞品</td>
+                        <td>功能成熟</td>
+                        <td>用户体验不佳，界面陈旧</td>
+                        <td>现代化 UI 设计，提升用户满意度</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <h3>4.3 差异化定位</h3>
+            <ol>
+                <li><strong>智能识别</strong>：自动识别论文结构（标题、正文、图表、参考文献等）</li>
+                <li><strong>批量处理</strong>：一次完成整篇论文格式调整</li>
+                <li><strong>模板化</strong>：内置多种学术格式模板，支持自定义</li>
+                <li><strong>现代化体验</strong>：简洁直观的用户界面</li>
+            </ol>
+        </div>
+
+        <!-- 5. 功能需求 -->
+        <div class="section" id="section-5">
+            <h2>5. 功能需求</h2>
+
+            <h3>5.1 功能优先级</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>优先级</th>
+                        <th>功能模块</th>
+                        <th>版本规划</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><span class="priority-box priority-p0">P0</span></td>
+                        <td>文档结构识别</td>
+                        <td>v1.0</td>
+                    </tr>
+                    <tr>
+                        <td><span class="priority-box priority-p0">P0</span></td>
+                        <td>格式规则配置</td>
+                        <td>v1.0</td>
+                    </tr>
+                    <tr>
+                        <td><span class="priority-box priority-p0">P0</span></td>
+                        <td>批量格式应用</td>
+                        <td>v1.0</td>
+                    </tr>
+                    <tr>
+                        <td><span class="priority-box priority-p1">P1</span></td>
+                        <td>格式模板库</td>
+                        <td>v1.1</td>
+                    </tr>
+                    <tr>
+                        <td><span class="priority-box priority-p1">P1</span></td>
+                        <td>错误报告生成</td>
+                        <td>v1.0</td>
+                    </tr>
+                    <tr>
+                        <td><span class="priority-box priority-p2">P2</span></td>
+                        <td>格式预览</td>
+                        <td>v2.0</td>
+                    </tr>
+                    <tr>
+                        <td><span class="priority-box priority-p2">P2</span></td>
+                        <td>批量文件处理</td>
+                        <td>v2.0</td>
+                    </tr>
+                    <tr>
+                        <td><span class="priority-box priority-p3">P3</span></td>
+                        <td>AI 智能推荐</td>
+                        <td>v3.0</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <h3>5.2 核心功能需求</h3>
+
+            <h4>FR-001：文档结构自动识别</h4>
+            <p><strong>需求描述：</strong>系统应能自动识别 Word 文档中的各类内容结构，包括但不限于：</p>
+
+            <table>
+                <thead>
+                    <tr>
+                        <th>结构类型</th>
+                        <th>识别规则</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>封面</td>
+                        <td>文档首段，居中对齐</td>
+                    </tr>
+                    <tr>
+                        <td>摘要</td>
+                        <td>关键词"摘要"、"Abstract"及其后续内容<br>- 摘要标题：独立段落，包含关键词<br>- 摘要内容：摘要标题后的正文段落</td>
+                    </tr>
+                    <tr>
+                        <td>各级标题</td>
+                        <td>按照编号规则识别<br>- 一级标题："第X章"、"X." 等格式<br>- 二级标题："第X节"、"X.X" 等格式<br>- 三级标题："X.X.X"、"一、" 等格式<br>- 四级标题："X.X.X.X"、"（一）" 等格式</td>
+                    </tr>
+                    <tr>
+                        <td>正文内容</td>
+                        <td>普通段落，非标题、非特殊内容</td>
+                    </tr>
+                    <tr>
+                        <td>图表标题</td>
+                        <td>包含"图X"、"表X"等标识</td>
+                    </tr>
+                    <tr>
+                        <td>表格内容</td>
+                        <td>Word 表格中的文字内容</td>
+                    </tr>
+                    <tr>
+                        <td>表格注释</td>
+                        <td>"资料来源："、"注："等标记内容</td>
+                    </tr>
+                    <tr>
+                        <td>公式</td>
+                        <td>独立数学公式段落</td>
+                    </tr>
+                    <tr>
+                        <td>参考文献</td>
+                        <td>关键词"参考文献"后的条目<br>- 参考文献标题：识别为标题，设置大纲级别<br>- 参考文献内容：识别为条目内容</td>
+                    </tr>
+                    <tr>
+                        <td>致谢</td>
+                        <td>关键词"致谢"、"Acknowledgement"及其内容</td>
+                    </tr>
+                    <tr>
+                        <td>附录</td>
+                        <td>关键词"附录"、"Appendix"及其内容</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <p><strong>验收标准：</strong></p>
+            <ul>
+                <li><input type="checkbox"> 识别准确率 ≥ 95%（基于标准论文样本测试）</li>
+                <li><input type="checkbox"> 支持中英文混合文档</li>
+                <li><input type="checkbox"> 正确处理多级嵌套标题</li>
+                <li><input type="checkbox"> 区分标题与正文边界情况</li>
+            </ul>
+
+            <hr>
+
+            <h4>FR-002：格式规则配置</h4>
+            <p><strong>需求描述：</strong>用户应为每种文档结构类型配置独立的格式规则，包括：</p>
+
+            <table>
+                <thead>
+                    <tr>
+                        <th>格式属性</th>
+                        <th>支持选项</th>
+                        <th>默认值</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>中文字体</td>
+                        <td>宋体、黑体、楷体、仿宋、等</td>
+                        <td>宋体</td>
+                    </tr>
+                    <tr>
+                        <td>英文字体</td>
+                        <td>Times New Roman、Arial、Calibri 等</td>
+                        <td>Times New Roman</td>
+                    </tr>
+                    <tr>
+                        <td>字号</td>
+                        <td>初号-八号（标准字号列表）</td>
+                        <td>小四</td>
+                    </tr>
+                    <tr>
+                        <td>对齐方式</td>
+                        <td>左对齐、居中、右对齐、两端对齐</td>
+                        <td>两端对齐</td>
+                    </tr>
+                    <tr>
+                        <td>行距</td>
+                        <td>单倍-3倍、固定磅值</td>
+                        <td>1.5倍</td>
+                    </tr>
+                    <tr>
+                        <td>段前间距</td>
+                        <td>0磅-48磅</td>
+                        <td>0磅</td>
+                    </tr>
+                    <tr>
+                        <td>段后间距</td>
+                        <td>0磅-48磅</td>
+                        <td>0磅</td>
+                    </tr>
+                    <r>
+                        <td>首行缩进</td>
+                        <td>无、1-4字符</td>
+                        <td>2字符（正文）</td>
+                    </tr>
+                    <tr>
+                        <td>整体缩进</td>
+                        <td>无、左缩进、右缩进、左右缩进</td>
+                        <td>无</td>
+                    </tr>
+                    <tr>
+                        <td>加粗</td>
+                        <td>是/否</td>
+                        <td>否</td>
+                    </tr>
+                    <tr>
+                        <td>倾斜</td>
+                        <td>是/否</td>
+                        <td>否</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <p><strong>验收标准：</strong></p>
+            <ul>
+                <li><input type="checkbox"> 支持 17 种论文结构类型</li>
+                <li><input type="checkbox"> 每种类型支持 11+ 个格式属性</li>
+                <li><input type="checkbox"> 配置实时生效，无需重启</li>
+                <li><input type="checkbox"> 支持配置导入/导出</li>
+            </ul>
+        </div>
+
+        <!-- 6. 非功能需求 -->
+        <div class="section" id="section-6">
+            <h2>6. 非功能需求</h2>
+
+            <h3>6.1 性能需求</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>需求项</th>
+                        <th>指标</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>启动时间</td>
+                        <td>≤ 3 秒</td>
+                    </tr>
+                    <tr>
+                        <td>大文件加载</td>
+                        <td>10MB 文件 ≤ 5 秒</td>
+                    </tr>
+                    <tr>
+                        <td>格式应用速度</td>
+                        <td>10 页文档 ≤ 5 秒</td>
+                    </tr>
+                    <r>
+                        <td>内存占用</td>
+                        <td>运行时 ≤ 200MB</td>
+                    </tr>
+                    <tr>
+                        <td>响应性</td>
+                        <td>UI 操作响应 ≤ 100ms</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <h3>6.2 可用性需求</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>需求项</th>
+                        <th>说明</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>易学性</td>
+                        <td>新用户 5 分钟内掌握基本操作</td>
+                    </tr>
+                    <tr>
+                        <td>错误提示</td>
+                        <td>清晰描述问题原因和解决方案</td>
+                    </tr>
+                    <tr>
+                        <td>操作可逆</td>
+                        <td>支持撤销格式应用（可选，v2.0+）</td>
+                    </tr>
+                    <tr>
+                        <td>帮助文档</td>
+                        <td>内置使用说明和格式规范介绍</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <h3>6.3 兼容性需求</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>需求项</th>
+                        <th>支持范围</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>文件格式</td>
+                        <td>.docx（Microsoft Word 2007+）</td>
+                    </tr>
+                    <tr>
+                        <td>操作系统</td>
+                        <td>Windows 10/11</td>
+                    </tr>
+                   r>
+                        <td>分辨率</td>
+                        <td>1024×768 及以上</td>
+                    </tr>
+                    <tr>
+                        <td>DPI 缩放</td>
+                        <td>支持标准缩放（100%、125%、150%）</td>
+                    </tr>
+                    <tr>
+                        <td>Word 版本</td>
+                        <td>Word 2010、2013、2016、2019、2021、365</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <h3>6.4 可靠性需求</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>需求项</th>
+                        <th>指标</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>稳定性</td>
+                        <td>连续处理 10 个文档无崩溃</td>
+                    </tr>
+                    <tr>
+                        <td>数据完整性</td>
+                        <td>文档处理后内容零丢失</td>
+                    </tr>
+                    <tr>
+                        <td>错误恢复</td>
+                        <td>意外错误时自动保存临时文件</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <h3>6.5 安全性需求</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>需求项</th>
+                        <th>说明</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>本地处理</td>
+                        <td>所有处理在本地完成，无需上传</td>
+                    </tr>
+                    <tr>
+                        <td>隐私保护</td>
+                        <td>不收集用户文档内容和元数据</td>
+                    </tr>
+                    <tr>
+                        <td>临时文件安全</td>
+                        <td>处理完成后清理临时文件</td>
+                    </tr>
+                    <tr>
+                        <td>权限控制</td>
+                        <td>仅请求必要的文件读写权限</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- 7. 用户流程 -->
+        <div class="section" id="section-7">
+            <h2>7. 用户流程</h2>
+
+            <h3>7.1 核心使用流程</h3>
+            <div class="flowchart">
+用户打开程序
+    ↓
+选择论文文件
+    ↓
+查看默认格式规则
+    ↓
+是否需要调整格式规则？[是/否]
+    ├─ 是 → 调整格式规则
+    │       ↓
+    ├─ 否 → 使用默认规则
+    │       ↓
+点击"开始排版"
+    ↓
+处理进度显示
+    ↓
+处理成功？[是/否]
+    ├─ 是 → 打开输出文档
+    │       ↓
+    │   完成
+    └─ 否 → 查看错误报告
+            ↓
+            完成
+            </div>
+
+            <h3>7.2 详细步骤说明</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>步骤</th>
+                        <th>操作</th>
+                        <th>期望时间</th>
+                        <th>用户反馈</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>1</td>
+                        <td>启动程序</td>
+                        <td>&lt; 1 秒</td>
+                        <td>欢迎界面加载完成</td>
+                    </tr>
+                    <tr>
+                        <td>2</td>
+                        <td>选择论文文件</td>
+                        <td>&lt; 5 秒</td>
+                        <td>文件路径显示</td>
+                    </tr>
+                    <tr>
+                        <td>3</td>
+                        <td>查看默认格式规则</td>
+                        <td>-</td>
+                        <td>表格中显示默认配置</td>
+                    </tr>
+                    <tr>
+                        <td>4</td>
+                        <td>调整格式规则（可选）</td>
+                        <td>30-60 秒</td>
+                        <td>配置项实时更新</td>
+                    </tr>
+                    <tr>
+                        <td>5</td>
+                        <td>点击"开始排版"</td>
+                        <td>-</td>
+                        <td>开始处理，禁用按钮</td>
+                    </tr>
+                    <tr>
+                        <td>6</td>
+                        <td>查看进度</td>
+                        <td>5-30 秒</td>
+                        <td>进度条和状态文字更新</td>
+                    </tr>
+                    <tr>
+                        <td>7</td>
+                        <td>处理完成通知</td>
+                        <td>-</td>
+                        <td>按钮恢复可用状态</td>
+                    </tr>
+                    <tr>
+                        <td>8</td>
+                        <td>打开输出文档</td>
+                        <td>&lt; 2 秒</td>
+                        <td>Word 启动显示结果</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- 8. 界面设计 -->
+        <div class="section" id="section-8">
+            <h2>8. 界面设计</h2>
+
+            <h3>8.1 设计理念</h3>
+            <ul>
+                <li><strong>现代化</strong>：采用清新学术风格，符合现代软件审美</li>
+                <li><strong>专业性</strong>：配色克制，避免过度装饰</li>
+                <li><strong>高效性</strong>：信息密度适中，减少滚动</li>
+                <li><strong>一致性</strong>：UI 元素风格统一</li>
+            </ul>
+
+            <h3>8.2 视觉规范</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>元素</th>
+                        <th>设计规范</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>主色调</td>
+                        <td>明亮蓝色 (#3b82f6)</td>
+                    </tr>
+                    <tr>
+                        <td>背景色</td>
+                        <td>浅灰色 (#F3F4F6)</td>
+                    </tr>
+                    <tr>
+                        <td>卡片背景</td>
+                        <td>纯白色 (#ffffff)</td>
+                    </tr>
+                    <tr>
+                        <td>文字颜色</td>
+                        <td>深灰色 (#334155)</td>
+                    </tr>
+                    <tr>
+                        <td>边框颜色</td>
+                        <td>浅灰色 (#CBD5E1)</td>
+                    </tr>
+                    <tr>
+                        <td>圆角</td>
+                        <td>6-12px</td>
+                    </tr>
+                    <tr>
+                        <td>字体</td>
+                        <td>Microsoft YaHei UI / Segoe UI</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <h3>8.3 界面布局</h3>
+            <div class="diagram">
+                &nbsp;&nbsp;&nbsp;&nbsp;┌───────────────────────────────────────────────────────────┐<br>
+                &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;│&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&;&nbsp;&nbsp;&nbsp;&nbsp;论文格式助手&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;│<br>
+                &nbsp;&nbsp;&nbsp;&nbsp;├────────────────────────────────────┤&nbsp;&nbsp;┌────────────────────────────────────┤&nbsp;&nbsp;&nbsp;&nbsp;│<br>
+                &nbsp;&nbsp;&nbsp;&nbsp;│&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;格式规则设置&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;│&nbsp;&nbsp;│&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;文件操作&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;│&nbsp;&nbsp;&nbsp;&nbsp;│<br>
+                &nbsp;&nbsp;&nbsp;&nbsp;│&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;│&nbsp;&nbsp;│&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;│&nbsp;&nbsp;&nbsp;&nbsp;│<br>
+                &nbsp;&nbsp;&nbsp;&nbsp;│&nbsp;&nbsp;┌────────────┐&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;│&nbsp;&nbsp;│&nbsp;&nbsp;选择论文文件&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;│&nbsp;&nbsp;&nbsp;&nbsp;│<br>
+                &nbsp;&nbsp;&nbsp;&nbsp;│&nbsp;&nbsp;│&nbsp;表格&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;│&nbsp;&nbsp;│&nbsp;&nbsp;[____________]&nbsp;&nbsp;&nbsp;[浏览]&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;│&nbsp;&nbsp;&nbsp;&nbsp;│<br>
+                &nbsp;&nbsp;&nbsp;&nbsp;│&nbsp;&nbsp;│&nbsp;&nbsp;&nbsp;├─ 结构&nbsp;├─ 对齐&nbsp;├─ 行距&nbsp;│&nbsp;&nbsp;│&nbsp;&nbsp;│&nbsp;&nbsp;│&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;│&nbsp;&nbsp;&nbsp;&nbsp;│<br>
+                &nbsp;&nbsp;&nbsp;&nbsp;│&nbsp;&nbsp;│&nbsp;&nbsp;│&nbsp;&nbsp;│&nbsp;&nbsp;│&nbsp;&nbsp;│&nbsp;&nbsp;│&nbsp;&nbsp;│&nbsp;&nbsp;│&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;│&nbsp;&nbsp;&nbsp;&nbsp;│<br>
+                &nbsp;&nbsp;&nbsp;&nbsp;│&nbsp;&nbsp;└────────────┘&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&;│&nbsp;&nbsp;│&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;│&nbsp;&nbsp;&nbsp;&nbsp;│<br>
+                &nbsp;&nbsp;&nbsp;&nbsp;└────────────────────────────────────┘&nbsp;&nbsp;│&nbsp;&nbsp;输出文件位置&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;│&nbsp;&nbsp;&nbsp;&nbsp;│<br>
+                &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;│&nbsp;&nbsp;│&nbsp;&nbsp;[____________]&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;[浏览]&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;│&nbsp;&nbsp;&nbsp;&nbsp;│<br>
+                &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;│&nbsp;&nbsp;│&nbsp;&nbsp;自定义文件名&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;│&nbsp;&nbsp;&nbsp;&nbsp;│<br>
+                &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;│&nbsp;&nbsp;│&nbsp;&nbsp;[____________]&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;│&nbsp;&nbsp;&nbsp;&nbsp;│<br>
+                &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;│&nbsp;&nbsp;│&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;[开始排版]&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;│&nbsp;&nbsp;&nbsp;&nbsp;│<br>
+                &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;│&nbsp;&nbsp;│&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;│&nbsp;&nbsp;&nbsp;&nbsp;│<br>
+                &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;│&nbsp;&nbsp;[打开文档]&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;[打开文件夹]&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;│&nbsp;&nbsp;&nbsp;&nbsp;│<br>
+                &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;│&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;│&nbsp;&nbsp;&nbsp;&nbsp;│<br>
+                &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;│&nbsp;&nbsp;███████░░░░░░░░░░░░░&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;60%&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;│&nbsp;&nbsp;&nbsp;&nbsp;│<br>
+                &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;│&nbsp;&nbsp;&nbsp;正在处理段落...&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;│&nbsp;&nbsp;&nbsp;&nbsp;│<br>
+                &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;│&nbsp;&nbsp;└───────────────────────────────────────┘&nbsp;&nbsp;&nbsp;&nbsp;│<br>
+                └─────────────────────────────────────────────────────────────────┘<br>
+            </div>
+        </div>
+
+        <!-- 9. 技术架构 -->
+        <div class="section" id="section-9">
+            <h2>9. 技术架构</h2>
+
+            <h3>9.1 技术栈</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>技术类型</th>
+                        <th>选型</th>
+                        <th>版本</th>
+                        <th>说明</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>开发语言</td>
+                        <td>Python</td>
+                        <td>3.12+</td>
+                        <td>核心逻辑实现</td>
+                    </tr>
+                    <tr>
+                        <td>GUI 框架</td>
+                        <td>PySide6</td>
+                        <td>6.11.0</td>
+                        <td>Qt6 绑定，现代化 UI</td>
+                    </tr>
+                    <tr>
+                        <td>文档处理</td>
+                        <td>python-docx</td>
+                        <td>1.2.0+</td>
+                        <td>Word 文档读写</td>
+                    </tr>
+                    <tr>
+                        <td>打包工具</td>
+                        <td>PyInstaller</td>
+                        <td>6.19.0+</td>
+                        <td>生成独立 EXE</td>
+                    </tr>
+                    <tr>
+                        <td>运行平台</td>
+                        <td>Windows</td>
+                        <td>10/11</td>
+                        <td>目标平台</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <h3>9.2 系统架构</h3>
+            <div class="diagram">
+                <strong>三层架构设计：</</strong><br><br>
+                &nbsp;&nbsp;&nbsp;&nbsp;1. <strong>用户界面层 (UI Layer)</strong><br>
+                &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- 主窗口 (MainWindow)<br>
+                &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- 格式配置面板 (Format Panel)<br>
+                &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- 格式表格 (Format Table)<br>
+                &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- 文件操作面板 (File Panel)<br>
+                &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- 文件选择 (File Selection)<br>
+                &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- 操作按钮 (Action Buttons)<br>
+                &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- 进度显示 (Progress Display)<br><br>
+                &nbsp;&nbsp;&nbsp;&nbsp;↓ 事件驱动<br><br>
+                &nbsp;&nbsp;&nbsp;&nbsp;2. <strong>业务逻辑层 (Business Layer)</strong><br>
+                &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- 格式管理器 (Format Manager)<br>
+                &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- 规则配置管理<br>
+                &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- 规则验证<br><br>
+                &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;|<br>
+                &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- 文档处理引擎 (Document Processor)<br>
+                &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- 结构识别 (PartIdentifier)<br>
+                &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- 格式应用 (FormatApplier)<br>
+                &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- 样式管理 (StyleManager)<br>
+                &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;|<br>
+                &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- 错误处理器 (Error Handler)<br>
+                &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- 报告生成<br><br>
+                &nbsp;&nbsp;&nbsp;&nbsp;↓ 数据访问<br><br>
+                &nbsp;&nbsp;&nbsp;&nbsp;3. <strong>数据层 (Data Layer)</strong><br>
+                &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- Word 文档接口 (python-docx)<br>
+                &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- 段落访问<br>
+                &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- 样式管理<br>
+                &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- 表格处理
+            </div>
+        </div>
+
+        <!-- 10. 性能指标 -->
+        <div class="section" id="section-10">
+            <h2>10. 性能指标</h2>
+
+            <h3>10.1 关键指标</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>指标类型</th>
+                        <th>目标值</th>
+                        <th>测试方法</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>启动性能</td>
+                        <td>&lt; 3 秒</td>
+                        <td>启动到主窗口显示时间</td>
+                    </tr>
+                    <tr>
+                        <td>文件加载</td>
+                        <td>&lt; 5 秒/10MB</td>
+                        <td>文件选择到就绪状态时间</td>
+                    </tr>
+                    <tr>
+                        <td>识别性能</td>
+                        <td>&gt; 100 段落/秒</td>
+                        <td>结构识别吞吐量</td>
+                    </tr>
+                    <tr>
+                        <td>格式应用</td>
+                        <td>&lt; 0.05 秒/段落</td>
+                        <td>单段落格式化时间</td>
+                    </tr>
+                    <tr>
+                        <td>整体处理</td>
+                        <td>&lt; 30 秒/10页</td>
+                        <td>完整文档处理时间</td>
+                    </tr>
+                    <tr>
+                        <td>内存占用</td>
+                        <td>&lt; 200MB</td>
+                        <td>运行时峰值内存</td>
+                    </tr>
+                    <tr>
+                        <td>EXE 文件大小</td>
+                        <td>&lt; 100MB</td>
+                        <td>打包后安装包大小</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <h3>10.2 性能优化策略</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>优化项</th>
+                        <th>实现方式</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>懒加载</td>
+                        <td>按需加载字体列表</td>
+                    </tr>
+                    <tr>
+                        <td>缓存机制</td>
+                        <td>缓存识别结果</td>
+                    </tr>
+                    <tr>
+                        <td>批量操作</td>
+                        <td>减少文档保存次数</td>
+                    </tr>
+                    <tr>
+                        <td>异步处理</td>
+                        <td>大文件异步处理，避免 UI 阻塞</td>
+                    </tr>
+                    <tr>
+                        <td>资源释放</td>
+                        <td>及时清理临时对象</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- 11. 安全需求 -->
+        <div class="section" id="section-11">
+            <h2>11. 安全需求</h2>
+
+            <h3>11.1 数据安全</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>安全要求</th>
+                        <th>实现方式</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>本地处理</td>
+                        <td>所有处理在本地完成，无需上传</td>
+                    </tr>
+                    <tr>
+                        <td>隐私保护</td>
+                        <td>不收集用户文档内容和元数据</td>
+                    </tr>
+                    <tr>
+                        <td>临时文件安全</td>
+                        <td>处理完成后清理临时文件</td>
+                    </tr>
+                    <tr>
+                        <td>权限控制</td>
+                        <td>仅请求必要的文件读写权限</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <h3>11.2 输入验证</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>验证项</th>
+                        <th>验证规则</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>文件格式</td>
+                        <td>仅接受 .docx 格式</td>
+                    </tr>
+                    <tr>
+                        <td>文件大小</td>
+                        <td>限制最大 500MB</td>
+                    </tr>
+                    <tr>
+                        <td>文件完整性</td>
+                        <td>验证文件未损坏</td>
+                    </tr>
+                    <tr>
+                        <td>路径合法性</td>
+                        <td>检查输出目录可写权限</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <h3>11.3 错误处理</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>错误类型</th>
+                        <th>处理策略</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>文件读取失败</td>
+                        <td>提示用户检查文件权限和完整性</td>
+                    </tr>
+                    <tr>
+                        <td>格式应用失败</td>
+                        <td>记录详细错误，生成报告，继续处理</td>
+                    </tr>
+                    <tr>
+                        <td>保存失败</td>
+                        <td>提示用户检查磁盘空间</td>
+                    </tr>
+                    <tr>
+                        <td>未预期错误</td>
+                        <td>生成崩溃报告，提供恢复建议</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- 12. 兼容性需求 -->
+        <div class="section" id="section-12">
+            <h2>12. 兼容性需求</h2>
+
+            <h3>12.1 平台兼容性</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>平台</th>
+                        <th>支持状态</th>
+                        <th>说明</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>Windows 10</td>
+                        <td class="status-ok">✓</td>
+                        <td>主要目标平台</td>
+                    </tr>
+                    <tr>
+                        <td>Windows 11</td>
+                        <td class="status-ok">✓</td>
+                        <td>主流新系统</td>
+                    </tr>
+                    <tr>
+                        <td>Windows Server</td>
+                        <td class="status-pending">⏳️</td>
+                        <td>暂不支持（v2.0+ 考虑）</td>
+                    </tr>
+                    <tr>
+                        <td>macOS</td>
+                        <td class="status-pending">⏳️</td>
+                        <td>规划中（v1.1+）</td>
+                    </tr>
+                    <tr>
+                        < <td>Linux</td>
+                        <td class="status-na">✗</td>
+                        <td>暂不规划</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <h3>12.2 Word 版本兼容性</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Word 版本</th>
+                        <th>兼容性</th>
+                        <th>测试状态</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>Word 2010</td>
+                        <td class="status-ok">✓</td>
+                        <td>待测试</td>
+                    </tr>
+                    <tr>
+                        <td>Word 2013</td>
+                        <td class="status-ok">✓</td>
+                        <td>待测试</td>
+                    </tr>
+                    <tr>
+                        <td>Word 2016</td>
+                        <td class="status-ok">✓</td>
+                        <td>待测试</td>
+                    </tr>
+                    <tr>
+                        <td>Word 2019</td>
+                        <td class="status-ok">✓</td>
+                        <td>待测试</td>
+                    </tr>
+                    <tr>
+                        <td>Word 2021</td>
+                        <td class="status-ok">✓</td>
+                        <td>待测试</td>
+                    </tr>
+                    <tr>
+                        <td>Word 365</td>
+                        <td class="status-ok">✓</td>
+                        <td>待测试</td>
+                    </tr>
+                    <tr>
+                        <td>WPS Office</td>
+                        <td class="status-na">✗</td>
+                        <td>暂不支持</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <h3>12.3 文档格式兼容性</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>格式</th>
+                        <th>支持状态</th>
+                        <th>说明</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>.docx</td>
+                        <td class="status-ok">✓</td>
+                        <td>主要支持格式</td>
+                    </tr>
+                    <tr>
+                        <td>.doc（旧版）</td>
+                        <td class="status-na">✗</td>
+                        <td>建议用户转换</td>
+                    </tr>
+                    <tr>
+                        <td>受保护文档</td>
+                        <td class="status-ok">✓</td>
+                        <td>支持读写</td>
+                    </tr>
+                    <tr>
+                        <td>含宏文档</td>
+                        <td class="status-pending">⚠️</td>
+                        <td>宏可能丢失，提示用户</td>
+                    </tr>
+                    <tr>
+                        <td>复杂布局</td>
+                        <td class="status-pending">⚠️</td>
+                        <td>部分支持，复杂情况可能需手动调整</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- 13. 未来规划 -->
+        <div class="section" id="section-13">
+            <h2>13. 未来规划</h2>
+
+            <h3>13.1 v1.1 规划（3-6个月）</h3>
+
+            <h4>新增功能</h4>
+            <table>
+                <thead>
+                    <tr>
+                        <th>功能 ID</th>
+                        <th>功能名称</th>
+                        <th>优先级</th>
+                        <th>工作量估算</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>FV-101</td>
+                        <td>格式模板库</td>
+                        <td><span class="priority-box priority-p1">P1</span></td>
+                        <td>2 周</td>
+                    </tr>
+                    <tr>
+                        <td>FV-102</td>
+                        <td>配置导入/导出</td>
+                        <td><span class="priority-box priority-p1">P1</span></td>
+                        <td>1 周</td>
+                    </tr>
+                    <tr>
+                        <td>FV-103</td>
+                        <<td>撤销功能（部分）</td>
+                        <td><span class="priority-box priority-p2">P2</span></td>
+                        <td>3 周</td>
+                    </tr>
+                    <tr>
+                        <td>FV-104</td>
+                        <td>最近文件列表</td>
+                        <td><span class="priority-box priority-p2">P2</span></td>
+                        <td>1 周</td>
+                    </tr>
+                    <tr>
+                        <td>FV-105</td>
+                        <td>格式对比工具</td>
+                        <td><span class="priority-box priority-p2">P2</span></td>
+                        <td>2 周</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <h4>改进项</h4>
+            <table>
+                <thead>
+                    <tr>
+                        <th>改进 ID</th>
+                        <th>描述</th>
+                        <th>优先级</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>IV-101</td>
+                        <td>表格列冻结</td>
+                        <td><span class="priority-box priority-p1">P1</span></td>
+                    </tr>
+                    <tr>
+                        <td>IV-102</td>
+                        <td>格式规则搜索</td>
+                        <td><span class="priority-box priority-p2">P2</span></td>
+                    </tr>
+                    <tr>
+                        <td>IV-103</td>
+                        <td>错误处理优化</td>
+                        <td><span class="priority-box priority-p1">P1</span></td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <h3>13.2 v2.0 规划（6-12个月）</h3>
+
+            <h4>新增功能</h4>
+            <table>
+                <thead>
+                    <tr>
+                        <th>功能 ID</th>
+                        <th>功能名称</th>
+                        <th>优先级</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>FV-201</td>
+                        <td>格式预览</td>
+                        <td><span class="priority-box priority-p0">P0</span></td>
+                    </tr>
+                    <tr>
+                        <td>FV-202</td>
+                        <td>批量文件处理</td>
+                        <td><span class="priority-box priority-p1">P1</span></td>
+                    </tr>
+                    <tr>
+                        <td>FV-203</td>
+                        <td>撤销/重做（完整）</td>
+                        <td><span class="priority-box priority-p1">P1</span></td>
+                    </tr>
+                    <tr>
+                        <td>FV-204</td>
+                        <td>快捷键支持</td>
+                        <td><span class="priority-box priority-p2">P2</span></td>
+                    </tr>
+                    <tr>
+                        <td>FV-205</td>
+                        <td>自定义主题</td>
+                        <td><span class="priority-box priority-p2">P2</span></td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <h4>平台扩展</h4>
+            <table>
+                <thead>
+                    <tr>
+                        <th>平台</th>
+                        <th>功能</th>
+                        <th>工作量</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>macOS</td>
+                        <td>完整移植</td>
+                        <td>4 周</td>
+                    </tr>
+                    <tr>
+                        <td>Web 版本</td>
+                        <td>基础功能上线</td>
+                        <td>8 周</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <h3>13.3 v3.0 规划（12-24个月）</h3>
+
+            <h4>新增功能</h4>
+            <table>
+                <thead>
+                    <tr>
+                        <th>功能 ID</th>
+                        <th>功能名称</th>
+                        <th>优先级</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>FV-301</td>
+                        <td>AI 格式推荐</td>
+                        <td><span class="priority-box priority-p0">P0</span></td>
+                    </tr>
+                    <tr>
+                        <td>FV-302</td>
+                        <td>云端模板同步</td>
+                        <td><span class="priority-box priority-p1">P1</span></td>
+                    </tr>
+                    <tr>
+                        <td>FV-303</td>
+                        <td>团队协作功能</td>
+                        <td><span class="priority-box priority-p2">P2</span></td>
+                    </tr>
+                    <tr>
+                        <td>FV-304</td>
+                        <td>插件系统</td>
+                        <td><span class="priority-box priority-p2">P2</span></td>
+                    </tr>
+                    <tr>
+                        <td>FV-305</td>
+                        <td>API 开放（第三方集成）</td>
+                        <td><span class="priority-box priority-p2">P2</span></td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <h4>AI 能力</h4>
+            <table>
+                <thead>
+                    <tr>
+                        <th>能力类型</th>
+                        <th>描述</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>智能识别</td>
+                        <td>基于文档内容推荐结构类型</td>
+                    </tr>
+                    <tr>
+                        <td>格式推荐</td>
+                        <td>根据期刊类型推荐格式</td>
+                    </tr>
+                    <tr>
+                        <td>质量检查</td>
+                        <td>自动检测格式不一致问题</td>
+                    </tr>
+                    <tr>
+                        <td>学习优化</td>
+                        <td>根据用户习惯优化默认规则</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- 附录 A：术语表 -->
+        <div class="section" id="appendix-a">
+            <h2>附录 A：术语表</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>术语</th>
+                        <th>定义</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>段落类型</td>
+                        <td>系统识别的文档结构分类（如 heading1、body 等）</td>
+                    </tr>
+                    <tr>
+                        <td>样式驱动</td>
+                        <td>通过创建和更新 Word 样式来实现格式化</td>
+                    </tr>
+                    <tr>
+                        <td>大纲级别</td>
+                        <td>Word 文档结构层级，用于目录生成</td>
+                    </tr>
+                    <tr>
+                        <td>直接格式</td>
+                        <td>直接应用于段落或字体的格式（非样式）</td>
+                    </tr>
+                    <tr>
+                        <td>段前/段后间距</td>
+                        <td>段落前后的空白距离（磅）</td>
+                    </tr>
+                    <tr>
+                        <td>首行缩进</td>
+                        <td>段落第一行的缩进距离</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- 附录 B：参考资料 -->
+        <div class="section" id="appendix-b">
+            <h2>附录 B：参考资料</h2>
+            <ul>
+                <li>python-docx 官方文档：<a href="https://python-docx.readthedocs.io/" target="_blank">https://python-docx.readthedocs.io/</a></li>
+                <li>PySide6 官方文档：<a href="https://doc.qt.io/qtforpython/" target="_blank">https://doc.qt.io/qtforpython/</a></li>
+                <li>PyInstaller 文档：<a href="https://pyinstaller.org/" target="_blank">https://pyinstaller.org/</a></li>
+                <li>GB/T 7714 科学技术报告编号规则编写规范：国家标准全文公开系统</li>
+            </ul>
+        </div>
+
+        <!-- 页脚 -->
+        <div style="margin-top: 50px; padding-top: 30px; border-top: 2px solid #e5e7eb; text-align: center; color: #64748b; font-size: 14px;">
+            <p><strong>文档结束</strong></p>
+            <p style="margin-bottom: 10px;">产品需求文档 v1.0 | 创建日期：2026-04-08</p>
+        </div>
+    </div>
+</body>
+</html>
