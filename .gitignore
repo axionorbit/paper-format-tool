@@ -26,3 +26,11 @@ Thumbs.db
 # 临时文件
 *.tmp
 *.bak
+
+# 可执行文件和压缩包
+*.exe
+*.zip
+*.tar
+*.gz
+*.7z
+*.rar
