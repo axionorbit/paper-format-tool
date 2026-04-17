@@ -4,9 +4,7 @@ UI模块 - 论文格式助手主界面
 """
 
 import os
-import re
 import subprocess
-import traceback
 from PySide6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QTableWidget, QHeaderView, QPushButton,
@@ -22,8 +20,7 @@ from utils.config import (
     PARTS, TABLE_COLUMNS, DEFAULT_FORMATS,
     DEFAULT_OUTPUT_DIR_HINT, DEFAULT_FILENAME_HINT
 )
-from core.rule_engine import PartIdentifier
-from core.formatter import FormatApplier
+from services.doc_service import DocumentProcessingService
 
 
 # ==================== 自定义组合框和复选框 widget ====================
@@ -115,209 +112,23 @@ class FormatThread(QThread):
 
     def __init__(self, task_snapshot):
         super().__init__()
-        self.文件_snapshot = task_snapshot
+        self.task_snapshot = task_snapshot
 
     def run(self):
-        error_entries = []
-        report_path = self._build_error_report_path(self.task_snapshot)
-        try:
-            from docx import Document
-            input_path = self.task_snapshot["input_path"]
-            output_path = self.task_snapshot["output_path"]
-            rules = self.task_snapshot["rules"]
-            output_dir = self.task_snapshot["output_dir"]
-            custom_filename = self.task_snapshot["custom_filename"]
+        service = DocumentProcessingService(progress_callback=self.progress_update.emit)
+        result = service.process(self.task_snapshot)
 
-            self.progress_update.emit(10, "正在读取文档...")
+        output_path = result.get("output_path", "")
+        report_path = result.get("report_path", "")
+        error_msg = result.get("error", "")
 
-            # 读取文档
-            doc = Document(input_path)
+        if output_path:
+            self.finished.emit(result.get("success", False), output_path, report_path)
+            return
 
-            # 获取格式规则
-            applier = FormatApplier(rules, doc)
-            identifier = PartIdentifier()
-
-            # 统计信息
-            total_paragraphs = len(doc.paragraphs)
-            total_tables = len(doc.tables)
-
-            self.progress_update.emit(20, "正在识别文档结构...")
-
-            # 处理段落
-            current_context = None
-
-            processed_count = 0
-            error_count = 0
-
-            for i, paragraph in enumerate(doc.paragraphs):
-                # 识别段落类型
-                part_type, is_title = identifier.identify(paragraph, current_context)
-
-                # 更新上下文
-                if is_title:
-                    if part_type == "abstract_title":
-                        current_context = "abstract"
-                    elif part_type == "ref_title":
-                        current_context = "ref"
-                    elif part_type == "ack_title":
-                        current_context = "ack"
-                    elif part_type == "appendix_title":
-                        current_context = "appendix"
-                    elif part_type in ["heading1", "heading2", "heading3", "heading4"]:
-                        current_context = "body"
-
-                # 应用格式
-                if part_type:
-                    try:
-                        applier.apply_to_paragraph(paragraph, part_type)
-                    except Exception as e:
-                        error_count += 1
-                        self._record_error(
-                            error_entries,
-                            "段落样式应用",
-                            e,
-                            index=i + 1,
-                            part_type=part_type,
-                            text=paragraph.text,
-                        )
-                else:
-                    try:
-                        applier.apply_to_paragraph(paragraph, "body")
-                    except Exception as e:
-                        error_count += 1
-                        self._record_error(
-                            error_entries,
-                            "段落回退样式应用",
-                            e,
-                            index=i + 1,
-                            part_type="body",
-                            text=paragraph.text,
-                        )
-
-                processed_count += 1
-
-                # 定期更新进度
-                if processed_count % 100 == 0 or i == len(doc.paragraphs) - 1:
-                    progress_val = 20 + int((processed_count / total_paragraphs) * 60)
-                    self.progress_update.emit(progress_val, f"正在处理段落 {processed_count}/{total_paragraphs}...")
-
-            self.progress_update.emit(80, "正在处理表格...")
-
-            # 处理表格
-            for i, table in enumerate(doc.tables):
-                try:
-                    applier.apply_to_table(table, rules)
-                except Exception as e:
-                    error_count += 1
-                    table_preview = ""
-                    try:
-                        for row in table.rows:
-                            for cell in row.cells:
-                                if cell.text.strip():
-                                    table_preview = cell.text.strip()
-                                    break
-                            if table_preview:
-                                break
-                    except Exception:
-                        table_preview = ""
-                    self._record_error(
-                        error_entries,
-                        "表格处理",
-                        e,
-                        index=i + 1,
-                        part_type="table",
-                        text=table_preview,
-                    )
-
-                progress = 80 + int((i + 1) / max(total_tables, 1) * 10)
-                self.progress_update.emit(progress, f"正在处理表格 {i + 1}/{total_tables}...")
-
-            self.progress_update.emit(90, "正在保存文档...")
-
-            # 确定输出路径
-            input_path = self.task_snapshot["input_path"]
-            output_dir = self.task_snapshot["output_dir"]
-            custom_filename = self.task_snapshot["custom_filename"]
-
-            if output_dir and output_dir != "与原文件相同目录":
-                if custom_filename and custom_filename != "留空则使用默认名称":
-                    if not custom_filename.endswith('.docx'):
-                        custom_filename += '.docx'
-                    output_path = os.path.join(output_dir, custom_filename)
-                else:
-                    output_path = os.path.join(output_dir, os.path.basename(input_path))
-            else:
-                name, ext = os.path.splitext(input_path)
-                if custom_filename and custom_filename != "留空则使用默认名称":
-                    if not custom_filename.endswith('.docx'):
-                        custom_filename += '.docx'
-                    output_path = os.path.join(os.path.dirname(input_path), custom_filename)
-                else:
-                    output_path = f"{name}_formatted{ext}"
-
-            os.makedirs(os.path.dirname(output_path) or os.getcwd(), exist_ok=True)
-            doc.save(output_path)
-
-            if error_entries:
-                report_path = self._write_error_report(report_path, self.task_snapshot, error_entries)
-
-            self.progress_update.emit(100, "处理完成")
-            self.finished.emit(len(error_entries) == 0, output_path, report_path or "")
-
-        except Exception as e:
-            report_path = self._write_error_report(
-                report_path,
-                self.task_snapshot,
-                error_entries,
-                traceback.format_exc(),
-            )
-            self.error.emit(str(e))
-            self.error.emit(report_path or "")
-
-    def _build_error_report_path(self, task_snapshot):
-        output_path = task_snapshot.get("output_path") or task_snapshot.get("input_path")
-        base_dir = os.path.dirname(output_path) or os.getcwd()
-        base_name = os.path.splitext(os.path.basename(output_path))[0]
-        return os.path.join(base_dir, f"{base_name}_error_report.txt")
-
-    def _record_error(self, error_entries, stage, error, index=None, part_type=None, text=None):
-        compact_text = re.sub(r"\s+", " ", text or "").strip()
-        error_entries.append({
-            "stage": stage,
-            "index": index,
-            "part_type": part_type,
-            "text": compact_text[:200],
-            "error": str(error),
-        })
-
-    def _write_error_report(self, report_path, task_snapshot, error_entries, fatal_trace=None):
-        os.makedirs(os.path.dirname(report_path), exist_ok=True)
-        with open(report_path, "w", encoding="utf-8") as report_file:
-            report_file.write("论文格式助手错误报告\n")
-            report_file.write("=" * 48 + "\n")
-            report_file.write(f"输入文档: {task_snapshot.get('input_path', '')}\n")
-            report_file.write(f"输出文档: {task_snapshot.get('output_path', '')}\n")
-            report_file.write(f"问题数量: {len(error_entries)}\n\n")
-
-            if error_entries:
-                report_file.write("详细问题\n")
-                report_file.write("-" * 48 + "\n")
-                for idx, entry in enumerate(error_entries, 1):
-                    report_file.write(f"{idx}. 阶段: {entry['stage']}\n")
-                    if entry.get("index") is not None:
-                        report_file.write(f"   序号: {entry['index']}\n")
-                    if entry.get("part_type"):
-                        report_file.write(f"   识别类型: {entry['part_type']}\n")
-                    if entry.get("text"):
-                        report_file.write(f"   文本片段: {entry['text']}\n")
-                    report_file.write(f"   错误信息: {entry['error']}\n\n")
-
-            if fatal_trace:
-                report_file.write("致命错误堆栈\n")
-                report_file.write("-" * 48 + "\n")
-                report_file.write(fatal_trace)
-
-        return report_path
+        if report_path:
+            error_msg = f"{error_msg}\n错误报告：{report_path}" if error_msg else f"错误报告：{report_path}"
+        self.error.emit(error_msg or "处理失败")
 
 
 class ThesisFormatterApp(QMainWindow):
@@ -667,6 +478,8 @@ class ThesisFormatterApp(QMainWindow):
 
     def create_file_panel(self, parent_layout):
         """创建文件操作面板"""
+        parent_layout.setSpacing(12)
+
         # 文件选择
         self._create_file_input(parent_layout, "选择论文文件", "input_file_entry", "input_file_btn")
 
@@ -675,6 +488,19 @@ class ThesisFormatterApp(QMainWindow):
 
         # 自定义文件名
         self._create_file_input(parent_layout, "自定义文件名", "filename_entry", None, DEFAULT_FILENAME_HINT)
+
+        # AI API Key
+        self._create_file_input(
+            parent_layout,
+            "AI API Key（可选）",
+            "ai_api_key_entry",
+            None,
+            "留空则仅规则识别"
+        )
+        self.ai_api_key_entry.setEchoMode(QLineEdit.Password)
+        self.ai_api_key_entry.setClearButtonEnabled(True)
+
+        parent_layout.addSpacing(16)
 
         # 开始排版按钮
         self.start_btn = QPushButton("开始排版")
@@ -723,6 +549,10 @@ class ThesisFormatterApp(QMainWindow):
 
     def _create_file_input(self, parent_layout, label_text, entry_name, btn_name, placeholder=""):
         """创建文件输入控件 - 清新学术风格"""
+        field_layout = QVBoxLayout()
+        field_layout.setSpacing(6)
+        field_layout.setContentsMargins(0, 0, 0, 0)
+
         label = QLabel(label_text)
         label.setStyleSheet("""
             QLabel {
@@ -734,10 +564,11 @@ class ThesisFormatterApp(QMainWindow):
                 letter-spacing: 0.5px;
             }
         """)
-        parent_layout.addWidget(label)
+        field_layout.addWidget(label)
 
         input_layout = QHBoxLayout()
         input_layout.setSpacing(10)
+        input_layout.setContentsMargins(0, 0, 0, 0)
 
         entry = QLineEdit()
         entry.setPlaceholderText(placeholder)
@@ -756,7 +587,8 @@ class ThesisFormatterApp(QMainWindow):
             setattr(self, btn_name, btn)
             input_layout.addWidget(btn)
 
-        parent_layout.addLayout(input_layout)
+        field_layout.addLayout(input_layout)
+        parent_layout.addLayout(field_layout)
 
     def select_file(self):
         """选择输入文件"""
@@ -840,11 +672,13 @@ class ThesisFormatterApp(QMainWindow):
             return
 
         custom_filename = self.filename_entry.text().strip()
+        ai_api_key = self.ai_api_key_entry.text().strip()
 
         task_snapshot = {
             "input_path": input_path,
             "output_dir": output_dir,
             "custom_filename": custom_filename,
+            "ai_api_key": ai_api_key,
             "rules": self.get_format_rules(),
             "output_path": self._build_output_path(input_path, output_dir, custom_filename),
         }

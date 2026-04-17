@@ -4,6 +4,7 @@
 """
 
 import re
+from docx.oxml.ns import qn
 
 
 class PartIdentifier:
@@ -18,18 +19,20 @@ class PartIdentifier:
     # 三级标题：
     # - 1.1.1 ××× 格式（阿拉伯数字，三个数字用.分隔）
     # - 一、××× 格式（中文数字后跟、）
-    HEADING3_PATTERN = re.compile(r'^(?:[0-9]+\.[0-9]+\.[0-9]+\s+|[一二三四五六七八九十百]+、)\s*.*$')
+    HEADING3_PATTERN = re.compile(r'^(?:[0-9]+\.[0-9]+\.[0-9]+(?!\.[0-9])\s*|[一二三四五六七八九十百]+、)\s*.*$')
 
     # 四级标题：
     # - 1.1.1.1 ××× 格式（阿拉伯数字，四个数字用.分隔）
     # - （一）××× 格式（中文数字在括号内）
-    HEADING4_PATTERN = re.compile(r'^(?:[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+\s+|（[一二三四五六七八九十百]+）)\s*.*$')
+    HEADING4_PATTERN = re.compile(r'^(?:[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+\s*|（[一二三四五六七八九十百]+）)\s*.*$')
 
     # 阿拉伯数字编号的标题（如1. 2. 1.1 2.1等）
     ARABIC_HEADING1_PATTERN = re.compile(r'^[0-9]+\s+.*$')  # 1 人民币国际化
     ARABIC_HEADING1_DOT_PATTERN = re.compile(r'^[0-9]+\s*[、．．]\s*.*$')  # 1、或1．
-    ARABIC_HEADING2_PATTERN = re.compile(r'^[0-9]+\.[0-9]+\s*.*$')  # 1.1
-    ARABIC_HEADING3_PATTERN = re.compile(r'^[0-9]+\.[0-9]+\.[0-9]+\s*.*$')  # 1.1.1
+    # 使用负向前瞻避免前缀误匹配：
+    # 例如 1.1.1 不应被 1.1 规则吞掉
+    ARABIC_HEADING2_PATTERN = re.compile(r'^[0-9]+\.[0-9]+(?!\.[0-9])\s*.*$')  # 1.1
+    ARABIC_HEADING3_PATTERN = re.compile(r'^[0-9]+\.[0-9]+\.[0-9]+(?!\.[0-9])\s*.*$')  # 1.1.1
 
     # 图片标题：图X-X、图X.X、图X等（宽松的匹配）
     FIGURE_PATTERN = re.compile(r'^图\s*[0-9]+([-\.][0-9]+)?.*$')
@@ -46,6 +49,196 @@ class PartIdentifier:
     def _normalize(text):
         """去除所有空格用于匹配"""
         return text.replace(" ", "").replace("\u3000", "")
+
+    @staticmethod
+    def _is_title_candidate(text):
+        """判断是否为标题候选：短文本且末尾没有句号类标点，允许存在换行"""
+        if not text:
+            return False
+
+        compact_text = text.strip()
+        char_count_without_spaces = len(
+            compact_text.replace(" ", "").replace("\u3000", "")
+        )
+        if char_count_without_spaces == 0 or char_count_without_spaces >= 30:
+            return False
+
+        end_punctuation = ('。', '！', '？', '.', '!', '?')
+        return not compact_text.endswith(end_punctuation)
+
+    @staticmethod
+    def _iter_style_chain(paragraph):
+        """遍历段落样式链（当前样式 -> 基样式）"""
+        style = getattr(paragraph, "style", None)
+        visited = set()
+        while style is not None and id(style) not in visited:
+            yield style
+            visited.add(id(style))
+            style = getattr(style, "base_style", None)
+
+    @staticmethod
+    def _extract_heading_level_from_style_name(style_name):
+        """从样式名中提取标题级别（Heading/标题/List Number）"""
+        if not style_name:
+            return None
+
+        normalized = re.sub(r'\s+', '', str(style_name)).lower()
+
+        # Heading 1 / 标题 1
+        match = re.match(r'^(?:heading|标题)([1-9])$', normalized)
+        if match:
+            return int(match.group(1))
+
+        # List Number 2 / 列表编号2 / 编号2
+        match = re.match(r'^(?:listnumber|列表编号|编号)([1-9])$', normalized)
+        if match:
+            return int(match.group(1))
+
+        return None
+
+    @staticmethod
+    def _find_numpr(paragraph):
+        """
+        获取段落编号定义：
+        1) 段落自身 pPr.numPr
+        2) 样式链 pPr.numPr
+        """
+        try:
+            ppr = paragraph._element.pPr
+            if ppr is not None and ppr.numPr is not None:
+                return ppr.numPr
+        except Exception:
+            pass
+
+        for style in PartIdentifier._iter_style_chain(paragraph):
+            try:
+                style_ppr = style.element.pPr
+                if style_ppr is not None and style_ppr.numPr is not None:
+                    return style_ppr.numPr
+            except Exception:
+                continue
+
+        return None
+
+    @staticmethod
+    def _safe_numpr_val(numpr, attr_name):
+        try:
+            node = getattr(numpr, attr_name, None)
+            if node is None:
+                return None
+            return node.val
+        except Exception:
+            return None
+
+    @staticmethod
+    def _extract_heading_level_from_numbering_definition(paragraph, num_id, ilvl):
+        """从 numbering 定义中的 lvlText（如 %1.%2）推断标题层级"""
+        if num_id is None:
+            return None
+
+        try:
+            numbering_root = paragraph.part.numbering_part.element
+        except Exception:
+            return None
+
+        try:
+            target_abstract_num_id = None
+            for num_node in numbering_root.findall(qn('w:num')):
+                if num_node.get(qn('w:numId')) == str(num_id):
+                    abstract_id_node = num_node.find(qn('w:abstractNumId'))
+                    if abstract_id_node is not None:
+                        target_abstract_num_id = abstract_id_node.get(qn('w:val'))
+                    break
+
+            if target_abstract_num_id is None:
+                return None
+
+            target_abstract = None
+            for abstract_node in numbering_root.findall(qn('w:abstractNum')):
+                if abstract_node.get(qn('w:abstractNumId')) == str(target_abstract_num_id):
+                    target_abstract = abstract_node
+                    break
+
+            if target_abstract is None:
+                return None
+
+            lvl_node = None
+            if ilvl is not None:
+                for node in target_abstract.findall(qn('w:lvl')):
+                    if node.get(qn('w:ilvl')) == str(ilvl):
+                        lvl_node = node
+                        break
+            if lvl_node is None:
+                lvl_nodes = target_abstract.findall(qn('w:lvl'))
+                if lvl_nodes:
+                    lvl_node = lvl_nodes[0]
+
+            if lvl_node is None:
+                return None
+
+            lvl_text_node = lvl_node.find(qn('w:lvlText'))
+            lvl_text = lvl_text_node.get(qn('w:val')) if lvl_text_node is not None else ""
+            if not lvl_text:
+                return None
+
+            level_tokens = re.findall(r'%\d+', lvl_text)
+            level = len(level_tokens)
+            if 1 <= level <= 4:
+                return level
+        except Exception:
+            return None
+
+        return None
+
+    @staticmethod
+    def _infer_heading_level_by_style_or_numbering(paragraph, text, is_title_candidate, char_count_without_spaces):
+        """
+        兜底标题识别（用于 Word 自动编号等场景）
+        """
+        if not text or not is_title_candidate or char_count_without_spaces >= 30:
+            return None
+
+        style_level = None
+        for style in PartIdentifier._iter_style_chain(paragraph):
+            level = PartIdentifier._extract_heading_level_from_style_name(
+                getattr(style, "name", "")
+            )
+            if level and 1 <= level <= 4:
+                style_level = level
+                break
+
+        # 1) 编号元数据优先判定（numPr + ilvl / lvlText）
+        numpr = PartIdentifier._find_numpr(paragraph)
+        if numpr is not None:
+            num_id = PartIdentifier._safe_numpr_val(numpr, "numId")
+            ilvl = PartIdentifier._safe_numpr_val(numpr, "ilvl")
+
+            level = PartIdentifier._extract_heading_level_from_numbering_definition(
+                paragraph, num_id, ilvl
+            )
+            if level and 1 <= level <= 4:
+                # 对于仅解析出一级且编号层信息缺失的样式，允许样式级别补偿
+                if level == 1 and ilvl is None and style_level and style_level > 1:
+                    return style_level
+                return level
+
+            # 2) 次级兜底：仅有 ilvl 时（常见于某些自动编号模板）
+            if ilvl is not None:
+                try:
+                    ilvl_int = int(str(ilvl))
+                    # ilvl=0 更可能是普通编号列表，这里保守忽略，避免把正文列表识别成一级标题
+                    if ilvl_int >= 1:
+                        level = ilvl_int + 1
+                        if 1 <= level <= 4:
+                            return level
+                except Exception:
+                    pass
+
+        # 3) 样式名直判（Heading/标题/List Number 2 等）
+        if style_level and 1 <= style_level <= 4:
+            return style_level
+
+        return None
 
     @staticmethod
     def _has_formula_omml(paragraph):
@@ -91,22 +284,8 @@ class PartIdentifier:
             return None, False
 
         normalized = PartIdentifier._normalize(text)
-
-        # 改进的单独一行判断：更智能的标题识别逻辑
-        has_end_punctuation = text.endswith(('。', '！', '？', '.', '!', '?', '；', ';', '：', ':'))
-        # 更宽松的长度限制，因为中文标题可能较长
-        is_short_text = len(text) < 150
-        # 检查是否包含换行符或其他段落特征
-        has_line_breaks = '\n' in text or '\r' in text
-        # 检查是否像标题（包含标题关键词且不以句号结束）
-        contains_title_keywords = any(keyword in text for keyword in ['第', '章', '节', '、', '（', '）', '图', '表'])
-
-        # 标题字数限制：超过50个字符（不含空格）不算标题
         char_count_without_spaces = len(text.replace(" ", "").replace("\u3000", ""))
-        is_too_long_for_title = char_count_without_spaces > 50
-
-        is_single_line = (is_short_text and not has_end_punctuation and not has_line_breaks and not is_too_long_for_title) or \
-                        (contains_title_keywords and not is_too_long_for_title)
+        is_title_candidate = PartIdentifier._is_title_candidate(text)
 
         # 1. 特殊标题检查（支持更多变体）
         if normalized in ["摘要", "摘 要", "ABSTRACT", "Abstract"]:
@@ -118,25 +297,27 @@ class PartIdentifier:
         if normalized in ["附录", "附 录", "APPENDIX", "Appendix", "APPENDICES", "Appendices"]:
             return "appendix_title", True
 
-        # 2. 标题级别检查（需要单独一行）
-        if is_single_line:
+        # 2. 标题级别检查（标题候选段落）
+        if is_title_candidate:
             if PartIdentifier.HEADING1_PATTERN.match(text):
                 return "heading1", True
             if PartIdentifier.HEADING2_PATTERN.match(text):
                 return "heading2", True
-            if PartIdentifier.HEADING3_PATTERN.match(text):
-                return "heading3", True
             if PartIdentifier.HEADING4_PATTERN.match(text):
                 return "heading4", True
+            if PartIdentifier.HEADING3_PATTERN.match(text):
+                return "heading3", True
 
-            # 阿拉伯数字编号的标题
-            if PartIdentifier.ARABIC_HEADING2_PATTERN.match(text) or PartIdentifier.ARABIC_HEADING3_PATTERN.match(text):
+            # 阿拉伯数字编号（先高层级后低层级，避免前缀吞并）
+            if PartIdentifier.ARABIC_HEADING3_PATTERN.match(text):
+                return "heading3", True
+            if PartIdentifier.ARABIC_HEADING2_PATTERN.match(text):
                 return "heading2", True
             if PartIdentifier.ARABIC_HEADING1_PATTERN.match(text) or PartIdentifier.ARABIC_HEADING1_DOT_PATTERN.match(text):
                 return "heading1", True
 
-        # 3. 图表标题检查（需要单独一行）
-        if is_single_line:
+        # 3. 图表标题检查（标题候选段落）
+        if is_title_candidate:
             if PartIdentifier.FIGURE_PATTERN.match(text):
                 return "figure_caption", True
             if PartIdentifier.TABLE_PATTERN.match(text):
@@ -146,7 +327,14 @@ class PartIdentifier:
         if PartIdentifier.TABLE_NOTE_PATTERN.match(text):
             return "table_note", True
 
-        # 5. 根据上下文和内容判断区域
+        # 5. 样式/编号兜底识别（放在文本正则后、正文前）
+        fallback_level = PartIdentifier._infer_heading_level_by_style_or_numbering(
+            paragraph, text, is_title_candidate, char_count_without_spaces
+        )
+        if fallback_level:
+            return f"heading{fallback_level}", True
+
+        # 6. 根据上下文和内容判断区域
         if position_context:
             if position_context == "abstract":
                 return "abstract_content", False
@@ -157,9 +345,9 @@ class PartIdentifier:
             elif position_context == "appendix":
                 return "appendix_content", False
 
-        # 5. 检查是否为参考文献内容（在参考文献标题后且不是其他标题）
+        # 7. 检查是否为参考文献内容（在参考文献标题后且不是其他标题）
         if position_context == "ref":
             return "ref_content", False
 
-        # 6. 默认为正文
+        # 8. 默认为正文
         return "body", False

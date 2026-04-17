@@ -3,14 +3,30 @@
 融合引擎模块 - 结合规则识别和AI识别
 """
 
-from typing import Optional, Tuple, List, Dict
+from typing import Callable, Dict, List, Optional, Tuple
 
+from core.parser import DocumentParser, ParagraphUnit
 from core.rule_engine import PartIdentifier
 from core.ai_engine import AIIdentifier, get_ai_identifier, is_ai_enabled
+from utils.logger import default_logger
 
 
 class FusionIdentifier:
-    """融合识别器 - 结合规则和AI的识别结果"""
+    """融合识别器 - 文档级三阶段识别（规则 -> 异常检测 -> AI）"""
+
+    TITLE_LABELS = {
+        "heading1",
+        "heading2",
+        "heading3",
+        "heading4",
+        "figure_caption",
+        "table_caption",
+        "table_note",
+        "abstract_title",
+        "ref_title",
+        "ack_title",
+        "appendix_title",
+    }
 
     def __init__(self, ai_identifier: Optional[AIIdentifier] = None):
         """
@@ -19,8 +35,14 @@ class FusionIdentifier:
         """
         self.ai_identifier = ai_identifier or get_ai_identifier()
         self.rule_identifier = PartIdentifier()
-        self.last_heading_level = None  # 记录上一个标题级别
-        self.has_body_since_last_heading = False  # 标记自上一个标题后是否有正文
+        self.parser = DocumentParser()
+
+        default_logger.info(
+            "AI status: enabled=%s, model=%s, api_key_configured=%s",
+            is_ai_enabled(self.ai_identifier),
+            getattr(self.ai_identifier, "model", "unknown"),
+            bool(getattr(self.ai_identifier, "api_key", "")),
+        )
 
     def identify_paragraph(
         self,
@@ -28,81 +50,313 @@ class FusionIdentifier:
         position_context: Optional[str] = None
     ) -> Tuple[Optional[str], bool]:
         """
-        识别段落类型（规则 + AI融合）
+        单段识别（优先规则；满足条件时尝试AI）
         返回: (part_type, is_title)
         """
-        # 1. 先使用规则识别
         part_type, is_title = self.rule_identifier.identify(
             paragraph, position_context
         )
 
-        # 2. 更新状态（用于检测连续标题）
-        self._update_state(part_type, is_title)
-
-        # 3. 检查是否需要AI辅助识别
-        if self._should_use_ai_recognition(paragraph, part_type, is_title):
-            ai_part_type, ai_is_title = self._identify_with_ai(
-                paragraph, position_context
-            )
-            # 如果AI识别成功，使用AI结果
+        text = (paragraph.text or "").strip()
+        if (
+            part_type == "body"
+            and text
+            and len(text.replace(" ", "").replace("\u3000", "")) < 30
+            and not self.parser.has_sentence_ending(text)
+            and is_ai_enabled(self.ai_identifier)
+        ):
+            ai_part_type, ai_is_title = self._identify_with_ai(paragraph, position_context)
             if ai_part_type:
-                part_type = ai_part_type
-                is_title = ai_is_title
+                return ai_part_type, ai_is_title
 
         return part_type, is_title
 
-    def _update_state(self, part_type: Optional[str], is_title: bool):
-        """更新状态，用于检测连续标题等异常情况"""
-        if is_title and part_type and part_type.startswith("heading"):
-            self.last_heading_level = part_type
-            self.has_body_since_last_heading = False
-        elif part_type == "body" and self.last_heading_level:
-            self.has_body_since_last_heading = True
+    def _identify_document_legacy(self, units: List[ParagraphUnit]) -> Dict:
+        """
+        文档级识别流程:
+        1. 规则识别
+        2. 异常检测（是否需要AI）
+        3. AI识别候选段落并覆盖候选标签
+        """
+        return self._identify_document_with_stage(units, stage_callback=None)
 
-    def _should_use_ai_recognition(
+    def _identify_document_with_stage(
         self,
-        paragraph,
+        units: List[ParagraphUnit],
+        stage_callback: Optional[Callable[[str, Dict], None]] = None,
+    ) -> Dict:
+        """
+        文档级识别流程（带阶段回调）:
+        1. 规则识别
+        2. 异常检测（是否需要AI）
+        3. AI识别候选段落并覆盖候选标签
+        """
+        self._emit_stage(stage_callback, "rule_start")
+        rule_results = self._run_rule_stage(units)
+        self._emit_stage(stage_callback, "rule_done", total=len(rule_results))
+
+        self._emit_stage(stage_callback, "anomaly_start")
+        anomalies = self._detect_anomalies(units, rule_results)
+        self._emit_stage(
+            stage_callback,
+            "anomaly_done",
+            need_ai=anomalies.get("need_ai", False),
+            reasons=anomalies.get("reasons", []),
+        )
+
+        final_results = [dict(item) for item in rule_results]
+        ai_used = False
+        ai_label_map: Dict[int, str] = {}
+        ai_candidates = self.parser.extract_ai_candidates(units, max_chars=30)
+
+        should_call_ai = anomalies["need_ai"] and is_ai_enabled(self.ai_identifier)
+        default_logger.info(
+            "AI trigger: should_call_ai=%s, reasons=%s, candidates=%s",
+            should_call_ai,
+            anomalies.get("reasons", []),
+            len(ai_candidates),
+        )
+
+        if should_call_ai and ai_candidates:
+            self._emit_stage(
+                stage_callback,
+                "ai_start",
+                candidates=len(ai_candidates),
+                reasons=anomalies.get("reasons", []),
+            )
+            ai_used = True
+            candidate_payload = [
+                {
+                    "id": unit.index,
+                    "text": unit.ai_text,
+                }
+                for unit in ai_candidates
+            ]
+            ai_context = {
+                "trigger_reasons": anomalies.get("reasons", []),
+                "summary": anomalies.get("summary", {}),
+            }
+            ai_label_map = self.ai_identifier.identify_candidates(
+                candidate_payload,
+                context=ai_context,
+            )
+
+            default_logger.info(
+                "AI labeled paragraphs: %s",
+                [(idx, label) for idx, label in sorted(ai_label_map.items())],
+            )
+            if not ai_label_map:
+                ai_status = {}
+                try:
+                    ai_status = self.ai_identifier.get_last_status()
+                except Exception:
+                    ai_status = {}
+                default_logger.warning(
+                    "AI produced no labels. last_error=%s, response_preview=%s",
+                    ai_status.get("last_error", ""),
+                    ai_status.get("last_response_preview", "")[:200],
+                )
+
+            for idx, label in ai_label_map.items():
+                if idx < 0 or idx >= len(final_results):
+                    continue
+                final_results[idx]["part_type"] = label
+                final_results[idx]["is_title"] = label in self.TITLE_LABELS
+                final_results[idx]["source"] = "ai"
+            self._emit_stage(
+                stage_callback,
+                "ai_done",
+                labeled=len(ai_label_map),
+            )
+        elif anomalies.get("need_ai") and not is_ai_enabled(self.ai_identifier):
+            self._emit_stage(stage_callback, "ai_skipped_disabled")
+        elif anomalies.get("need_ai") and not ai_candidates:
+            self._emit_stage(stage_callback, "ai_skipped_no_candidates")
+        else:
+            self._emit_stage(stage_callback, "ai_not_needed")
+
+        final_labels = {
+            row["index"]: row["part_type"]
+            for row in final_results
+            if row.get("part_type") is not None
+        }
+
+        result = {
+            "rule_results": rule_results,
+            "final_results": final_results,
+            "final_labels": final_labels,
+            "anomalies": anomalies,
+            "ai_used": ai_used,
+            "ai_candidate_count": len(ai_candidates),
+            "ai_labeled_count": len(ai_label_map),
+        }
+        self._emit_stage(
+            stage_callback,
+            "identify_done",
+            ai_used=ai_used,
+            ai_candidate_count=len(ai_candidates),
+            ai_labeled_count=len(ai_label_map),
+        )
+        return result
+
+    def identify_document(
+        self,
+        units: List[ParagraphUnit],
+        stage_callback: Optional[Callable[[str, Dict], None]] = None,
+    ) -> Dict:
+        return self._identify_document_with_stage(units, stage_callback=stage_callback)
+
+    def _emit_stage(
+        self,
+        callback: Optional[Callable[[str, Dict], None]],
+        stage: str,
+        **payload,
+    ):
+        if callback:
+            callback(stage, payload)
+
+    def _run_rule_stage(self, units: List[ParagraphUnit]) -> List[Dict]:
+        """第一阶段：规则识别"""
+        results: List[Dict] = []
+        current_context = None
+
+        for unit in units:
+            part_type, is_title = self.rule_identifier.identify(
+                unit.paragraph,
+                current_context,
+            )
+            results.append(
+                {
+                    "index": unit.index,
+                    "part_type": part_type,
+                    "is_title": is_title,
+                    "source": "rule",
+                }
+            )
+            current_context = self._next_context(current_context, part_type, is_title)
+
+        return results
+
+    def _next_context(
+        self,
+        current_context: Optional[str],
         part_type: Optional[str],
-        is_title: bool
-    ) -> bool:
+        is_title: bool,
+    ) -> Optional[str]:
+        if not is_title:
+            return current_context
+
+        if part_type == "abstract_title":
+            return "abstract"
+        if part_type == "ref_title":
+            return "ref"
+        if part_type == "ack_title":
+            return "ack"
+        if part_type == "appendix_title":
+            return "appendix"
+        if part_type in {"heading1", "heading2", "heading3", "heading4"}:
+            return "body"
+        return current_context
+
+    def _detect_anomalies(
+        self,
+        units: List[ParagraphUnit],
+        rule_results: List[Dict],
+    ) -> Dict:
         """
-        判断是否需要使用AI识别
+        第二阶段：异常检测（是否触发AI）
         条件：
-        1. AI识别已启用
-        2. 被识别成正文
-        3. 没有句号
-        4. 字数少于30个字
-        5. 同一级别的标题连续出现（中间没有正文）
+        1. 某段被识别为正文，且无句末标点，且字数 < 30
+        2. 文档中不存在一级标题
+        3. 文档中不存在二级标题
+        4. 同一级别连续出现，且中间没有其他内容
+        5. 存在四级标题但不存在三级标题
         """
-        if not is_ai_enabled():
-            return False
+        has_h1 = False
+        has_h2 = False
+        has_h3 = False
+        has_h4 = False
+        short_body_without_period_indices: List[int] = []
+        consecutive_same_level_pairs: List[Tuple[int, int, str]] = []
 
-        text = paragraph.text.strip()
+        last_heading_level = None
+        last_heading_index = None
+        has_content_since_last_heading = False
 
-        # 条件5：同级别标题连续出现（中间没有正文）
-        # 检测情况：1.1 标题A → 1.2 标题B（之间没有正文）
-        if is_title and part_type and part_type.startswith("heading"):
-            if part_type == self.last_heading_level and not self.has_body_since_last_heading:
-                # 同级别标题连续出现，中间没有正文 - 异常情况
-                return True
+        for unit, result in zip(units, rule_results):
+            part_type = result.get("part_type")
 
-        # 条件2-4：正文相关的检查
-        if part_type != "body":
-            return False
+            if part_type == "heading1":
+                has_h1 = True
+            elif part_type == "heading2":
+                has_h2 = True
+            elif part_type == "heading3":
+                has_h3 = True
+            elif part_type == "heading4":
+                has_h4 = True
 
-        # 检查是否有句号
-        end_punctuation = ('。', '！', '？', '.', '!', '?')
-        has_end_punctuation = text.endswith(end_punctuation)
-        if has_end_punctuation:
-            return False
+            if (
+                part_type == "body"
+                and not unit.is_empty
+                and unit.char_count_without_spaces < 30
+                and not self.parser.has_sentence_ending(unit.text)
+            ):
+                short_body_without_period_indices.append(unit.index)
 
-        # 检查字数是否少于30个字
-        char_count = len(text)
-        if char_count >= 30:
-            return False
+            if part_type in {"heading1", "heading2", "heading3", "heading4"}:
+                if (
+                    last_heading_level == part_type
+                    and not has_content_since_last_heading
+                    and last_heading_index is not None
+                ):
+                    consecutive_same_level_pairs.append(
+                        (last_heading_index, unit.index, part_type)
+                    )
+                last_heading_level = part_type
+                last_heading_index = unit.index
+                has_content_since_last_heading = False
+            elif part_type and not unit.is_empty:
+                has_content_since_last_heading = True
 
-        # 满足所有条件，需要AI识别
-        return True
+        condition1 = bool(short_body_without_period_indices)
+        condition2 = not has_h1
+        condition3 = not has_h2
+        condition4 = bool(consecutive_same_level_pairs)
+        condition5 = has_h4 and not has_h3
+
+        reasons: List[str] = []
+        if condition1:
+            reasons.append("body_short_without_period")
+        if condition2:
+            reasons.append("missing_heading1")
+        if condition3:
+            reasons.append("missing_heading2")
+        if condition4:
+            reasons.append("consecutive_same_heading_level")
+        if condition5:
+            reasons.append("has_heading4_without_heading3")
+
+        return {
+            "need_ai": bool(reasons),
+            "condition1": condition1,
+            "condition2": condition2,
+            "condition3": condition3,
+            "condition4": condition4,
+            "condition5": condition5,
+            "reasons": reasons,
+            "summary": {
+                "has_h1": has_h1,
+                "has_h2": has_h2,
+                "has_h3": has_h3,
+                "has_h4": has_h4,
+                "short_body_without_period_count": len(short_body_without_period_indices),
+                "consecutive_same_level_count": len(consecutive_same_level_pairs),
+            },
+            "details": {
+                "short_body_without_period_indices": short_body_without_period_indices,
+                "consecutive_same_level_pairs": consecutive_same_level_pairs,
+            },
+        }
 
     def _identify_with_ai(
         self,
@@ -179,28 +433,34 @@ class DocumentStructureValidator:
         if not result["details"]["has_h1"]:
             result["is_valid"] = False
             result["missing_levels"].append("heading1")
-            result["ai_suggestions"].append({
-                "type": "missing_heading",
-                "level": "heading1",
-                "message": "文档中缺少一级标题（如"第X章"或"1"格式）",
-            })
+            result["ai_suggestions"].append(
+                {
+                    "type": "missing_heading",
+                    "level": "heading1",
+                    "message": '文档中缺少一级标题（如"第X章"或"1"格式）',
+                }
+            )
 
         if not result["details"]["has_h2"]:
             result["is_valid"] = False
             result["missing_levels"].append("heading2")
-            result["ai_suggestions"].append({
-                "type": "missing_heading",
-                "level": "heading2",
-                "message": "文档中缺少二级标题（如"第X节"或"1.1"格式）",
-            })
+            result["ai_suggestions"].append(
+                {
+                    "type": "missing_heading",
+                    "level": "heading2",
+                    "message": '文档中缺少二级标题（如"第X节"或"1.1"格式）',
+                }
+            )
 
         if result["details"]["has_h4"] and not result["details"]["has_h3"]:
             result["is_valid"] = False
             result["has_h4_without_h3"] = True
-            result["ai_suggestions"].append({
-                "type": "invalid_structure",
-                "message": "文档中存在四级标题（"1.1.1.1"格式）但没有三级标题",
-            })
+            result["ai_suggestions"].append(
+                {
+                    "type": "invalid_structure",
+                    "message": '文档中存在四级标题（"1.1.1.1"格式）但没有三级标题',
+                }
+            )
 
         # 3. 如果AI可用，可以生成更多建议
         if is_ai_enabled() and result["ai_suggestions"]:
@@ -216,10 +476,8 @@ class DocumentStructureValidator:
 
 def create_fusion_identifier(api_key: Optional[str] = None) -> FusionIdentifier:
     """创建融合识别器（便捷函数）"""
-    if api_key:
-        from core.ai_engine import set_ai_api_key
-        set_ai_api_key(api_key)
-    return FusionIdentifier()
+    ai_identifier = get_ai_identifier(api_key)
+    return FusionIdentifier(ai_identifier=ai_identifier)
 
 
 def validate_structure(
