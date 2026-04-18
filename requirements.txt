@@ -1,2 +1,0 @@
-python-docx>=0.8.11
-PySide6>=6.11.0
