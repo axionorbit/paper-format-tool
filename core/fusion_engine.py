@@ -57,18 +57,8 @@ class FusionIdentifier:
             paragraph, position_context
         )
 
-        text = (paragraph.text or "").strip()
-        if (
-            part_type == "body"
-            and text
-            and len(text.replace(" ", "").replace("\u3000", "")) < 30
-            and not self.parser.has_sentence_ending(text)
-            and is_ai_enabled(self.ai_identifier)
-        ):
-            ai_part_type, ai_is_title = self._identify_with_ai(paragraph, position_context)
-            if ai_part_type:
-                return ai_part_type, ai_is_title
-
+        # 为保证流程一致性，单段识别不直接触发 AI。
+        # AI 仅在 identify_document 的“规则识别 -> 异常检测 -> AI识别”流程中启动。
         return part_type, is_title
 
     def _identify_document_legacy(self, units: List[ParagraphUnit]) -> Dict:
@@ -298,7 +288,7 @@ class FusionIdentifier:
             if (
                 part_type == "body"
                 and not unit.is_empty
-                and unit.char_count_without_spaces < 30
+                and unit.char_count_without_spaces <= 30
                 and not self.parser.has_sentence_ending(unit.text)
             ):
                 short_body_without_period_indices.append(unit.index)
@@ -357,26 +347,6 @@ class FusionIdentifier:
                 "consecutive_same_level_pairs": consecutive_same_level_pairs,
             },
         }
-
-    def _identify_with_ai(
-        self,
-        paragraph,
-        position_context: Optional[str] = None
-    ) -> Tuple[Optional[str], bool]:
-        """
-        使用AI识别段落类型
-        """
-        if not self.ai_identifier:
-            return None, False
-
-        text = paragraph.text.strip()
-        context_info = {
-            "position_context": position_context,
-            "text_length": len(text)
-        }
-
-        return self.ai_identifier.identify_paragraph(text, context_info)
-
 
 class DocumentStructureValidator:
     """文档结构验证器"""
@@ -463,7 +433,8 @@ class DocumentStructureValidator:
             )
 
         # 3. 如果AI可用，可以生成更多建议
-        if is_ai_enabled() and result["ai_suggestions"]:
+        # 使用当前验证器实例的 AI 状态，避免读取全局状态导致串扰
+        if is_ai_enabled(self.ai_identifier) and result["ai_suggestions"]:
             result["ai_suggestions"].append({
                 "type": "ai_assistance_available",
                 "message": "AI辅助识别已启用，可以帮助识别可能的标题",
@@ -474,19 +445,21 @@ class DocumentStructureValidator:
 
 # 便捷函数
 
-def create_fusion_identifier(api_key: Optional[str] = None) -> FusionIdentifier:
+def create_fusion_identifier(
+    api_key: Optional[str] = None,
+    model: Optional[str] = None,
+) -> FusionIdentifier:
     """创建融合识别器（便捷函数）"""
-    ai_identifier = get_ai_identifier(api_key)
+    ai_identifier = get_ai_identifier(api_key, model=model)
     return FusionIdentifier(ai_identifier=ai_identifier)
 
 
 def validate_structure(
     heading_sequence: List[str],
-    api_key: Optional[str] = None
+    api_key: Optional[str] = None,
+    model: Optional[str] = None,
 ) -> Dict:
     """验证文档结构（便捷函数）"""
-    if api_key:
-        from core.ai_engine import set_ai_api_key
-        set_ai_api_key(api_key)
-    validator = DocumentStructureValidator()
+    ai_identifier = get_ai_identifier(api_key, model=model)
+    validator = DocumentStructureValidator(ai_identifier=ai_identifier)
     return validator.validate_document_structure(heading_sequence)

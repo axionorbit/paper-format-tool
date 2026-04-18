@@ -9,7 +9,7 @@ import time
 from typing import Dict, List, Optional, Tuple
 from urllib import error, request
 
-from utils.config import PARTS
+from utils.config import AI_MODEL_OPTIONS, DEFAULT_AI_MODEL, PARTS
 from utils.logger import default_logger
 
 
@@ -35,20 +35,18 @@ class AIIdentifier:
     def __init__(
         self,
         api_key: Optional[str] = None,
-        model: str = "GLM-4.7-Flash",
+        model: str = DEFAULT_AI_MODEL,
         timeout: int = 90,
         max_retries: int = 2,
-        batch_size: int = 4,
     ):
         """
         初始化AI识别器
         api_key: 智谱AI API密钥
         """
         self.api_key = (api_key or "").strip()
-        self.model = model
+        self.model = normalize_ai_model(model)
         self.timeout = timeout
         self.max_retries = max(0, int(max_retries))
-        self.batch_size = max(1, int(batch_size))
         self.base_url = "https://open.bigmodel.cn/api/paas/v4/chat/completions"
         self.enabled = bool(self.api_key)  # 有API密钥时才启用
         self.last_error: str = ""
@@ -173,7 +171,8 @@ class AIIdentifier:
 
         return result_map
 
-    def _build_messages(
+    # 保留历史版本以便回溯，不参与主流程调用。
+    def _build_messages_legacy(
         self,
         candidates: List[dict],
         context: Optional[dict] = None,
@@ -252,6 +251,45 @@ class AIIdentifier:
             f"{json.dumps(payload, ensure_ascii=False)}"
         )
 
+        return [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_prompt},
+        ]
+
+    def _build_messages(
+        self,
+        candidates: List[dict],
+        context: Optional[dict] = None,
+    ) -> List[dict]:
+        """
+        当前唯一生效的提示词构建函数。
+        保留 _build_messages_legacy 仅用于回溯历史版本，不参与主流程调用。
+        """
+        allowed = sorted(self.SUPPORTED_LABELS)
+        payload = {
+            "allowed_labels": allowed,
+            "candidates": candidates,
+        }
+        if context:
+            payload["context"] = context
+
+        system_prompt = (
+            "你是论文结构标注助手。你将收到按文中出现顺序排列的候选段落。"
+            "请基于全局上下文为每条候选打标签。"
+            "不要假设固定编号体系。"
+            "同一风格标记保持同层级；更细分/更深标记对应更低层级。"
+            "图题用 figure_caption，表题用 table_caption，注释/来源用 table_note。"
+            "若不是标题/图表注释可标为 body。"
+            "你还可以使用摘要、参考文献、致谢、附录、公式、表格内容等标签。"
+            "label 必须从 allowed_labels 中选择，必须覆盖所有 id 且不重复。"
+            "只输出 JSON，不要解释，不要 markdown。"
+            "格式：{\"results\":[{\"id\":1,\"label\":\"heading2\"}]}"
+        )
+        user_prompt = (
+            "请识别每条候选段落的结构标签。\n"
+            "输入数据如下：\n"
+            f"{json.dumps(payload, ensure_ascii=False)}"
+        )
         return [
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_prompt},
@@ -466,6 +504,7 @@ class AIIdentifier:
             return None
         return self._normalize_label(raw_label)
 
+    # 保留历史映射以兼容旧输出格式；当前主流程使用 _normalize_label。
     def _normalize_label_legacy(self, label: Optional[str]) -> Optional[str]:
         if label is None:
             return None
@@ -632,20 +671,39 @@ class AIIdentifier:
 _global_ai_identifier = None
 
 
-def get_ai_identifier(api_key: Optional[str] = None) -> AIIdentifier:
+def normalize_ai_model(model: Optional[str]) -> str:
+    if not model:
+        return DEFAULT_AI_MODEL
+
+    model_text = str(model).strip()
+    if not model_text:
+        return DEFAULT_AI_MODEL
+
+    if model_text in AI_MODEL_OPTIONS:
+        return model_text
+
+    normalized_map = {item.lower(): item for item in AI_MODEL_OPTIONS}
+    return normalized_map.get(model_text.lower(), DEFAULT_AI_MODEL)
+
+
+def get_ai_identifier(
+    api_key: Optional[str] = None,
+    model: Optional[str] = None,
+) -> AIIdentifier:
     """获取全局AI识别器实例"""
     global _global_ai_identifier
-    if api_key is not None:
-        _global_ai_identifier = AIIdentifier(api_key)
-    elif _global_ai_identifier is None:
-        _global_ai_identifier = AIIdentifier(api_key)
+    if _global_ai_identifier is None or api_key is not None or model is not None:
+        resolved_key = api_key if api_key is not None else getattr(_global_ai_identifier, "api_key", "")
+        resolved_model = model if model is not None else getattr(_global_ai_identifier, "model", DEFAULT_AI_MODEL)
+        _global_ai_identifier = AIIdentifier(resolved_key, normalize_ai_model(resolved_model))
     return _global_ai_identifier
 
 
-def set_ai_api_key(api_key: str):
+def set_ai_api_key(api_key: str, model: Optional[str] = None):
     """设置AI API密钥"""
     global _global_ai_identifier
-    _global_ai_identifier = AIIdentifier(api_key)
+    resolved_model = normalize_ai_model(model or getattr(_global_ai_identifier, "model", DEFAULT_AI_MODEL))
+    _global_ai_identifier = AIIdentifier(api_key, resolved_model)
 
 
 def is_ai_enabled(ai_identifier: Optional[AIIdentifier] = None) -> bool:

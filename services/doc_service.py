@@ -40,6 +40,7 @@ class DocumentProcessingService:
             output_path = task_snapshot["output_path"]
             rules = task_snapshot["rules"]
             ai_api_key = (task_snapshot.get("ai_api_key") or "").strip()
+            ai_model = (task_snapshot.get("ai_model") or "").strip()
 
             self._emit_progress(10, "正在读取文档...")
             doc = Document(input_path)
@@ -49,7 +50,7 @@ class DocumentProcessingService:
             units = parser.parse_document(doc)
 
             self._emit_progress(24, "规则识别中...")
-            identifier = create_fusion_identifier(api_key=ai_api_key)
+            identifier = create_fusion_identifier(api_key=ai_api_key, model=ai_model)
             identify_result = identifier.identify_document(
                 units,
                 stage_callback=self._on_identify_stage,

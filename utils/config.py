@@ -102,6 +102,23 @@ OVERALL_INDENT_MAP = {
 DEFAULT_OUTPUT_DIR_HINT = "与原文件相同目录"
 DEFAULT_FILENAME_HINT = "留空则使用默认名称"
 
+# ==================== AI 模型配置 ====================
+
+DEFAULT_AI_MODEL = "GLM-4.7-Flash"
+AI_MODEL_OPTIONS = [
+    "GLM-4.7-Flash",
+    "GLM-5.1",
+    "GLM-5",
+    "GLM-5-Turbo",
+    "GLM-4.7",
+    "GLM-4.7-FlashX",
+    "GLM-4.6",
+    "GLM-4.5-Air",
+    "GLM-4.5-AirX",
+    "GLM-4-Long",
+    "GLM-4-FlashX-250414",
+]
+
 # 论文部分列表
 PARTS = [
     ("摘要标题", "abstract_title"),
@@ -143,7 +160,7 @@ TABLE_COLUMNS = [
     ("chinese_font", "中文字体", 130),
     ("english_font", "英文字体", 150),
     ("font_size", "字号", 88),
-    ("alignment", "对齐", 88),
+    ("alignment", "对齐", 104),
     ("line_spacing", "行距", 118),
     ("space_before", "段前", 88),
     ("space_after", "段后", 88),

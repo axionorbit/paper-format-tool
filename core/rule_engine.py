@@ -60,7 +60,7 @@ class PartIdentifier:
         char_count_without_spaces = len(
             compact_text.replace(" ", "").replace("\u3000", "")
         )
-        if char_count_without_spaces == 0 or char_count_without_spaces >= 30:
+        if char_count_without_spaces == 0 or char_count_without_spaces > 30:
             return False
 
         end_punctuation = ('。', '！', '？', '.', '!', '?')
@@ -269,6 +269,81 @@ class PartIdentifier:
         return len(non_formula_text) <= 6
 
     @staticmethod
+    def _extract_numbering_prefix(paragraph):
+        """
+        Extract visible numbering prefix from Word numbering definition.
+        Only used to augment text for regex matching.
+        """
+        numpr = PartIdentifier._find_numpr(paragraph)
+        if numpr is None:
+            return ""
+
+        num_id = PartIdentifier._safe_numpr_val(numpr, "numId")
+        ilvl = PartIdentifier._safe_numpr_val(numpr, "ilvl")
+        ilvl_int = None
+        if ilvl is not None:
+            try:
+                ilvl_int = int(str(ilvl))
+            except Exception:
+                ilvl_int = None
+
+        lvl_text = ""
+        if num_id is not None:
+            try:
+                numbering_root = paragraph.part.numbering_part.element
+                target_abstract_num_id = None
+                for num_node in numbering_root.findall(qn("w:num")):
+                    if num_node.get(qn("w:numId")) == str(num_id):
+                        abstract_id_node = num_node.find(qn("w:abstractNumId"))
+                        if abstract_id_node is not None:
+                            target_abstract_num_id = abstract_id_node.get(qn("w:val"))
+                        break
+
+                if target_abstract_num_id is not None:
+                    target_abstract = None
+                    for abstract_node in numbering_root.findall(qn("w:abstractNum")):
+                        if abstract_node.get(qn("w:abstractNumId")) == str(target_abstract_num_id):
+                            target_abstract = abstract_node
+                            break
+
+                    if target_abstract is not None:
+                        lvl_node = None
+                        if ilvl_int is not None:
+                            for node in target_abstract.findall(qn("w:lvl")):
+                                if node.get(qn("w:ilvl")) == str(ilvl_int):
+                                    lvl_node = node
+                                    break
+                        if lvl_node is None:
+                            all_lvls = target_abstract.findall(qn("w:lvl"))
+                            if all_lvls:
+                                lvl_node = all_lvls[0]
+
+                        if lvl_node is not None:
+                            lvl_text_node = lvl_node.find(qn("w:lvlText"))
+                            if lvl_text_node is not None:
+                                lvl_text = lvl_text_node.get(qn("w:val")) or ""
+            except Exception:
+                lvl_text = ""
+
+        prefix = ""
+        if lvl_text:
+            prefix = re.sub(r"%\d+", "1", lvl_text).strip()
+            prefix = re.sub(r"[\.\u3002\uFF0E、\s]+$", "", prefix)
+        if not prefix and ilvl_int is not None and ilvl_int >= 0:
+            prefix = ".".join(["1"] * (ilvl_int + 1))
+        return prefix
+
+    @staticmethod
+    def _build_heading_match_text(paragraph, text):
+        if not text or not PartIdentifier._is_title_candidate(text):
+            return text
+
+        prefix = PartIdentifier._extract_numbering_prefix(paragraph).strip()
+        if not prefix or text.startswith(prefix):
+            return text
+        return f"{prefix} {text}"
+
+    @staticmethod
     def identify(paragraph, position_context=None):
         """
         识别段落类型
@@ -284,8 +359,8 @@ class PartIdentifier:
             return None, False
 
         normalized = PartIdentifier._normalize(text)
-        char_count_without_spaces = len(text.replace(" ", "").replace("\u3000", ""))
-        is_title_candidate = PartIdentifier._is_title_candidate(text)
+        heading_match_text = PartIdentifier._build_heading_match_text(paragraph, text)
+        is_title_candidate = PartIdentifier._is_title_candidate(heading_match_text)
 
         # 1. 特殊标题检查（支持更多变体）
         if normalized in ["摘要", "摘 要", "ABSTRACT", "Abstract"]:
@@ -299,21 +374,24 @@ class PartIdentifier:
 
         # 2. 标题级别检查（标题候选段落）
         if is_title_candidate:
-            if PartIdentifier.HEADING1_PATTERN.match(text):
+            if PartIdentifier.HEADING1_PATTERN.match(heading_match_text):
                 return "heading1", True
-            if PartIdentifier.HEADING2_PATTERN.match(text):
+            if PartIdentifier.HEADING2_PATTERN.match(heading_match_text):
                 return "heading2", True
-            if PartIdentifier.HEADING4_PATTERN.match(text):
+            if PartIdentifier.HEADING4_PATTERN.match(heading_match_text):
                 return "heading4", True
-            if PartIdentifier.HEADING3_PATTERN.match(text):
+            if PartIdentifier.HEADING3_PATTERN.match(heading_match_text):
                 return "heading3", True
 
             # 阿拉伯数字编号（先高层级后低层级，避免前缀吞并）
-            if PartIdentifier.ARABIC_HEADING3_PATTERN.match(text):
+            if PartIdentifier.ARABIC_HEADING3_PATTERN.match(heading_match_text):
                 return "heading3", True
-            if PartIdentifier.ARABIC_HEADING2_PATTERN.match(text):
+            if PartIdentifier.ARABIC_HEADING2_PATTERN.match(heading_match_text):
                 return "heading2", True
-            if PartIdentifier.ARABIC_HEADING1_PATTERN.match(text) or PartIdentifier.ARABIC_HEADING1_DOT_PATTERN.match(text):
+            if (
+                PartIdentifier.ARABIC_HEADING1_PATTERN.match(heading_match_text)
+                or PartIdentifier.ARABIC_HEADING1_DOT_PATTERN.match(heading_match_text)
+            ):
                 return "heading1", True
 
         # 3. 图表标题检查（标题候选段落）
@@ -328,9 +406,7 @@ class PartIdentifier:
             return "table_note", True
 
         # 5. 样式/编号兜底识别（放在文本正则后、正文前）
-        fallback_level = PartIdentifier._infer_heading_level_by_style_or_numbering(
-            paragraph, text, is_title_candidate, char_count_without_spaces
-        )
+        fallback_level = None
         if fallback_level:
             return f"heading{fallback_level}", True
 

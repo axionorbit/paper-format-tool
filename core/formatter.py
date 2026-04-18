@@ -156,9 +156,12 @@ class StyleManager:
 
         style_name = self.get_style_name(part_type)
 
-        # 总是更新样式以确保与当前GUI规则一致
-        # 这样即使样式已存在，也会按最新的规则刷新其格式
-        target_style = self.create_or_update_style(part_type, rules.get(part_type, {}))
+        # 优先复用已创建样式，避免每个段落重复创建/更新
+        # 仅当样式缺失时再兜底创建一次
+        if style_name in self.styles:
+            target_style = self.styles[style_name]
+        else:
+            target_style = self.create_or_update_style(part_type, rules.get(part_type, {}))
 
         # 应用样式到段落
         paragraph.style = target_style
